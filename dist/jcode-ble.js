@@ -177,6 +177,44 @@ var require_color_name = __commonJS({
   }
 });
 
+// src/device.js
+var Device = class {
+  constructor({ filters = [], optionalServices = [] } = {}) {
+    this.filters = filters;
+    this.optionalServices = optionalServices;
+    this._server = null;
+  }
+  async connect() {
+    const { filters, optionalServices } = this;
+    const acceptAllDevices = filters.length <= 0;
+    const options = {};
+    if (acceptAllDevices)
+      options.acceptAllDevices = true;
+    else {
+      options.filters = filters;
+      options.optionalServices = optionalServices;
+    }
+    const device = await navigator.bluetooth.requestDevice(options);
+    device.addEventListener("gattserverdisconnected", () => {
+      const e2 = new CustomEvent("devicedisconnected", { detail: { device: this } });
+      window.dispatchEvent(e2);
+    });
+    this._server = await device.gatt.connect();
+    const e = new CustomEvent("deviceconnected", { detail: { device: this } });
+    window.dispatchEvent(e);
+    return this;
+  }
+  async disconnect() {
+    await this.server.device.gatt.disconnect();
+  }
+  get server() {
+    if (this._server === null) {
+      throw new ReferenceError("server is not connected");
+    }
+    return this._server;
+  }
+};
+
 // node_modules/color-parse/index.mjs
 var import_color_name = __toESM(require_color_name(), 1);
 var color_parse_default = parse;
@@ -392,8 +430,49 @@ function rgba(color) {
   return values;
 }
 
-// src/index.js
-console.log(rgba("red"));
+// src/light-rgbw/playbulb.js
+var COLOR_UUID = 65532;
+var COLOR_EFFECT_UUID = 65531;
+var Playbulb = class extends Device {
+  constructor({
+    filters = [{ namePrefix: "PLAYBULB" }],
+    optionalServices = [65280, 65282, 65295]
+  } = {}) {
+    super({ filters, optionalServices });
+  }
+  async connect() {
+    await super.connect();
+    const service = (await this.server.getPrimaryServices())[0];
+    this._lightCharacteristic = await service.getCharacteristic(COLOR_UUID);
+    this._effectCharacteristic = await service.getCharacteristic(COLOR_EFFECT_UUID);
+    return this;
+  }
+  async setColor(value) {
+    const [r, g, b, a] = rgba(value);
+    const w = (1 - a) * 255;
+    await this._lightCharacteristic.writeValue(new Uint8Array([w, r, g, b]));
+  }
+  async getColor() {
+    const buffer = await this._lightCharacteristic.readValue();
+    const a = 1 - buffer.getUint8(0) / 255;
+    return rgba({ r: buffer.getUint8(1), g: buffer.getUint8(2), b: buffer.getUint8(3), a });
+  }
+  async setFlashingColor(value) {
+    const [r, g, b, a] = rgba(value);
+    const w = (1 - a) * 255;
+    await this._effectCharacteristic.writeValue(new Uint8Array([
+      w,
+      r,
+      g,
+      b,
+      0,
+      0,
+      31,
+      0
+    ]));
+  }
+};
 export {
-  rgba
+  Device,
+  Playbulb
 };
