@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <button>连接设备</button>
+  <script type="module">
+    import {Playbulb} from './jcode-ble.js';
+    const device = new Playbulb();
+    const button = document.querySelector('button');
+    window.addEventListener('deviceconnected', ({detail}) => {
+      console.log(detail);
+    });
+    window.addEventListener('devicedisconnected', ({detail}) => {
+      console.log(detail);
+    });
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    button.addEventListener('click', async () => {
+      await device.connect();
+      let hue = 0;
+      while (true) {
+        await device.setColor(`hsl(${hue}, 100%, 50%)`);
+        hue = (hue + 1) % 360;
+        await sleep(100);
+      }
+    });
+  </script>
+</body>
+</html>

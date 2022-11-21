@@ -1,0 +1,23 @@
+{
+  "name": "jcode-ble",
+  "version": "0.0.1",
+  "description": "jcode web bluetooth lib",
+  "main": "dist/jcode-ble.js",
+  "scripts": {
+    "start": "npm run dev",
+    "dev": "node build.js",
+    "build": "mode=production node build.js",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "akira-cn",
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.15.14",
+    "eslint": "^8.28.0",
+    "eslint-config-sprite": "^1.0.6"
+  },
+  "dependencies": {
+    "color-rgba": "^2.4.0"
+  }
+}
