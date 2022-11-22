@@ -1,4 +1,4 @@
-const esbuild = require('esbuild');
+import esbuild from 'esbuild';
 const options = {
   entryPoints: ['src/index.js'],
   outfile: 'dist/jcode-ble.js',

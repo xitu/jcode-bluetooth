@@ -4,7 +4,8 @@
 
 ## 已支持设备
 
--   [x] [Mipow-Playbulb-LED](https://www.aliexpress.com/item/1005003339962930.html)
+-   [x] [Mipow-Playbulb-LED](https://www.aliexpress.com/item/1005003339962930.html) | **GATT ✔︎** | **SPP x**
+-   [x] [Pixoo-Max](https://divoom.com/products/divoom-pixoo-max) | **GATT x** | **SPP ✔︎**
 
 逐步添加中...
 
