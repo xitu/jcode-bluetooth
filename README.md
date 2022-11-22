@@ -1,4 +1,4 @@
-# Jcode-BLE
+# Jcode-Bluetooth
 
 用[码上掘金](https://code.juejin.cn/)操作蓝牙智能设备。
 
