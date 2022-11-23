@@ -16,12 +16,21 @@
   <canvas width="32" height="32"></canvas>
   <script type="module">
     import {Pixoo, PixooMax} from './jcode-ble.js';
-    const p = new PixooMax();
-    // const ctx = document.querySelector('canvas').getContext('2d');
+    // const p = new PixooMax();
+    // const ctx = p.canvas.getContext('2d');
+    // for(let i = 0; i < 32; i++) {
+    //   for(let j = 0; j < 32; j++) {
+    //     ctx.fillStyle = `rgb(${i * 8}, ${j * 8}, 0)`;
+    //     ctx.beginPath();
+    //     ctx.rect(i, j, 1, 1);
+    //     ctx.fill();
+    //   }
+    // }
+    const p = new Pixoo();
     const ctx = p.canvas.getContext('2d');
-    for(let i = 0; i < 32; i++) {
-      for(let j = 0; j < 32; j++) {
-        ctx.fillStyle = `rgb(${i * 8}, ${j * 8}, 0)`;
+    for(let i = 0; i < 16; i++) {
+      for(let j = 0; j < 16; j++) {
+        ctx.fillStyle = `rgb(${i * 16}, ${j * 16}, 0)`;
         ctx.beginPath();
         ctx.rect(i, j, 1, 1);
         ctx.fill();
