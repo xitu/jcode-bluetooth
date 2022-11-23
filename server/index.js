@@ -139,13 +139,12 @@ function connect() {
     if(signal) signal.resolve(result);
   });
 
-  // await sleep(1000);
-  // const msg = '0104007450c80002';
-  // console.log(msg);
-  // writeMessage(connection, msg);
-
   const app = express();
   app.use(bodyParser.text({type: '*/*'}));
+
+  app.get('/', (req, res) => {
+    res.send(config);
+  });
 
   app.get('/:command', async (req, res) => {
     const {command} = req.params;
@@ -185,7 +184,7 @@ function connect() {
 
   process.on('SIGINT', (code) => {
     console.log('Disconnecting…');
-    connection.close();
+    if(connection) connection.close();
     process.exit(0);
   });
 }());

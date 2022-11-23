@@ -1,6 +1,6 @@
 // https://codelabs.developers.google.com/codelabs/candle-bluetooth?hl=zh-cn&authuser=6#5
 
-import rgba from 'color-rgba';
+import {TinyColor} from '@ctrl/tinycolor';
 import {Device} from '../device';
 
 const COLOR_UUID = 0xfffc;
@@ -21,7 +21,9 @@ class Playbulb extends Device {
   }
 
   async setColor(value) {
-    const [r, g, b, a] = rgba(value);
+    const color = new TinyColor(value);
+    const {r, g, b} = color.toRgb();
+    const a = color.getAlpha();
     const w = (1 - a) * 0xff;
     await this._lightCharacteristic.writeValue(new Uint8Array([w, r, g, b]));
   }
@@ -29,11 +31,13 @@ class Playbulb extends Device {
   async getColor() {
     const buffer = await this._lightCharacteristic.readValue();
     const a = 1 - buffer.getUint8(0) / 255;
-    return rgba({r: buffer.getUint8(1), g: buffer.getUint8(2), b: buffer.getUint8(3), a});
+    return new TinyColor({r: buffer.getUint8(1), g: buffer.getUint8(2), b: buffer.getUint8(3), a});
   }
 
   async setFlashingColor(value) {
-    const [r, g, b, a] = rgba(value);
+    const color = new TinyColor(value);
+    const {r, g, b} = color.toRgb();
+    const a = color.getAlpha();
     const w = (1 - a) * 0xff;
     await this._effectCharacteristic.writeValue(new Uint8Array([
       w, r, g, b,

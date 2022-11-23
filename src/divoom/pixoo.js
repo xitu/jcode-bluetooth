@@ -1,28 +1,35 @@
 // https://github.com/jakobwesthoff/divoom-pixoo-max-nodejs
-import {int2hexlittle} from './utils.js';
+import {int2hexlittle, number2HexString} from './utils.js';
 import {TimeboxEvoMessage} from './message.js';
 
-export class PixooMax {
+export class Pixoo {
   // constructor() {}
 
-  setBrightness(brightness) {
+  getBrightness(brightness) {
     if(brightness < 0 || brightness > 100) {
       throw Error(
         `Brightness must be in percent between 0 and 100 (inclusive). The given value was ${brightness}`,
       );
     }
 
-    return new TimeboxEvoMessage(`74${`0${brightness.toString(16)}`.slice(-2)}`).message;
+    return new TimeboxEvoMessage(`74${number2HexString(brightness)}`).message;
   }
 
-  setStaticImage(canvas) {
-    const frameTimeString = int2hexlittle(0);
-    const paletteTypeString = '03';
+  generateImageData(canvas, delay = 0) {
+    const frameTimeString = int2hexlittle(delay);
+    let paletteTypeString = '00';
 
     const {colorBufferString, screenBufferString, colorCount} = this.encodeCanvasToFrame(canvas);
-    const paletteCountString = int2hexlittle(colorCount);
+    let paletteCountString = colorCount;
 
-    const fsize = 2 + (frameTimeString.length
+    if(canvas.width > 16) {
+      paletteCountString = int2hexlittle(colorCount);
+      paletteTypeString = '03';
+    } else {
+      paletteCountString = number2HexString(colorCount);
+    }
+
+    const fsize = 3 + (frameTimeString.length
       + paletteTypeString.length
       + paletteCountString.length
       + colorBufferString.length
@@ -30,15 +37,39 @@ export class PixooMax {
 
     const frameSizeString = int2hexlittle(fsize);
 
+    return `aa${frameSizeString}${frameTimeString}${paletteTypeString}${paletteCountString}${colorBufferString}${screenBufferString}`;
+  }
+
+  getAnimationData(frames = [], speed = 100) {
+    if(frames.length <= 0) {
+      throw new Error('no frames given');
+    } else if(frames.length <= 1) {
+      return this.getStaticImage(frames[0]);
+    }
+    const frameData = [];
+    for(let i = 0; i < frames.length; i++) {
+      const canvas = frames[i];
+      const delay = speed * i;
+      frameData.push(this.generateImageData(canvas, delay));
+    }
+
+    const allData = frameData.join('');
+    const totalSize = allData.length / 2;
+    const nchunks = Math.ceil(allData.length / 400);
+    const chunks = [];
+    for(let i = 0; i < nchunks; i++) {
+      const chunkHeader = int2hexlittle(totalSize) + number2HexString(i);
+      chunks.push(`49${chunkHeader}${allData.substr(i * 400, 400)}`);
+    }
+    return chunks;
+  }
+
+  getStaticImage(canvas) {
+    const imageData = this.generateImageData(canvas);
+    const header = '44000a0a04';
+
     const payload = new TimeboxEvoMessage(
-      // eslint-disable-next-line prefer-template
-      '44000a0a04aa'
-      + frameSizeString
-      + frameTimeString
-      + paletteTypeString
-      + paletteCountString
-      + colorBufferString
-      + screenBufferString,
+      header + imageData,
     );
 
     return payload.message;
@@ -65,7 +96,7 @@ export class PixooMax {
       );
     }
 
-    const colorBufferString = palette.map(color => color.map(c => `0${c.toString(16)}`.slice(-2)).join('')).join('');
+    const colorBufferString = palette.map(color => color.map(c => number2HexString(c)).join('')).join('');
 
     // Calculate how many bits are needed to fit all the palette values in
     // log(1) === 0. Therefore we clamp to [1,..]
@@ -89,13 +120,13 @@ export class PixooMax {
         const lastByte = current & 0xff;
         current >>= 8;
         currentIndex -= 8;
-        screenBufferString += `0${lastByte.toString(16)}`.slice(-2);
+        screenBufferString += number2HexString(lastByte);
       }
     });
 
     // Add the last byte
     if(currentIndex !== 0) {
-      screenBufferString += `0${current.toString(16)}`.slice(-2);
+      screenBufferString += number2HexString(current);
     }
 
     return {
