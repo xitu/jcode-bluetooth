@@ -3,6 +3,7 @@
 import express from 'express';
 import BluetoothSerialPort from 'node-bluetooth-serial-port';
 import bodyParser from 'body-parser';
+import cors from 'cors';
 
 const config = {
   spp: {
@@ -15,6 +16,8 @@ const config = {
     port: 9527,
   },
 };
+
+let connection = null;
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -43,45 +46,44 @@ function stringToBuffer(message) {
   return bufferArray;
 }
 
+let tempBuffer;
+
 /**
  * Write a buffer to the device
  */
-function write(connection, buffer) {
+function write(buffer) {
   return new Promise((resolve, reject) => {
+    if(!connection) {
+      tempBuffer = buffer;
+      return reject(new Error('Not connected'));
+    }
     connection.write(buffer, (error, bytes) => {
       console.log('==>', buffer, bytes);
+      if(error) {
+        connection.close(); // 重新连接
+        connection = null;
+        tryConnect(1000).then((conn) => {
+          console.log('reconnected!');
+          connection = conn;
+          if(tempBuffer) write(tempBuffer);
+          tempBuffer = null;
+        });
+      }
       return error ? reject(error) : resolve(bytes);
     });
   });
 }
 
-async function writeMessage(connection, command) {
+async function writeMessage(command) {
   const buffers = stringToBuffer(command);
   const status = [];
   // eslint-disable-next-line no-restricted-syntax
   for(const buffer of buffers) {
     // eslint-disable-next-line no-await-in-loop
-    status.push(await write(connection, buffer));
+    status.push(await write(buffer));
   }
   return status;
 }
-
-function defer() {
-  let resolve;
-  let reject;
-  // eslint-disable-next-line promise/param-names
-  const promise = new Promise((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return {
-    resolve,
-    reject,
-    promise,
-  };
-}
-
-let signal = null;
 
 const SPP_Port = new BluetoothSerialPort.BluetoothSerialPort();
 function connect() {
@@ -101,6 +103,24 @@ function connect() {
   });
 }
 
+async function tryConnect(times = config.spp.maxConnectAttempts) {
+  let attempts = 0;
+  for(let i = 0; i < times; i += 1) {
+    try {
+      console.log('connection attempt %d/%d', attempts, times);
+      // eslint-disable-next-line no-await-in-loop
+      connection = await connect();
+      break;
+    } catch (error) {
+      console.error('error', error.message);
+      attempts++;
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(config.spp.connectionAttemptDelay);
+    }
+  }
+  return connection;
+}
+
 (async function () {
   const args = process.argv.slice(2);
   if(!args[0]) {
@@ -112,34 +132,20 @@ function connect() {
   config.spp.deviceMAC = args[0].replace(/[: ]/mg, '');
 
   // Let's try connecting
-  let attempts = 0;
-  let connection = null;
-  while(attempts < config.spp.maxConnectAttempts) {
-    console.log('connection attempt %d/%d', attempts, config.spp.maxConnectAttempts);
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      connection = await connect();
-      break;
-    } catch (error) {
-      console.error('error', error.message);
-      attempts++;
-      // eslint-disable-next-line no-await-in-loop
-      await sleep(config.connectionAttemptDelay);
-    }
-  }
+  connection = await tryConnect();
+
   if(!connection) {
     console.error('Failed to connect.');
-    connection.close();
     process.exit(-1);
   }
 
   connection.on('data', (buffer) => {
     const result = buffer.toString('hex');
     console.log('<==', result);
-    if(signal) signal.resolve(result);
   });
 
   const app = express();
+  app.use(cors());
   app.use(bodyParser.text({type: '*/*'}));
 
   app.get('/', (req, res) => {
@@ -147,30 +153,20 @@ function connect() {
   });
 
   app.get('/:command', async (req, res) => {
-    const {command} = req.params;
-    if(signal) signal.resolve();
-    if(command) {
-      signal = defer();
-      writeMessage(connection, command);
-      const result = await Promise.any(
-        [signal.promise, sleep(500)],
-      );
+    try {
+      const {command} = req.params;
+      const result = await writeMessage(command);
       res.send({status: 'OK', result});
-    } else {
-      res.send({status: 'OK'});
+    } catch (error) {
+      res.send({status: 'ERROR', error: error.message});
     }
   });
 
   app.post('/send', async (req, res) => {
     try {
       const {payload} = JSON.parse(req.body);
-      if(signal) signal.resolve();
       if(payload) {
-        signal = defer();
-        writeMessage(connection, payload);
-        const result = await Promise.any(
-          [signal.promise, sleep(500)],
-        );
+        const result = await writeMessage(payload);
         res.send({status: 'OK', result});
       } else {
         res.send({status: 'OK'});

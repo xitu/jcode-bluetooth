@@ -65,16 +65,17 @@ const data = [[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0
 canvas.transformByRowAndColumn((x, y, _color, index) => {
   if(
     x === 0
-    || x === 15
+    || x === 31
     || y === 0
-    || y === 15
+    || y === 31
   ) {
     return [0, 0, 0];
   }
-
+  // if(x === 5 && y === 5) return [0, 0, 0];
   const offsettedIndex = (index + offset) % colorCount;
+  // // console.log(hslToRgb(offsettedIndex / colorCount, 1, 0.5));
   return hslToRgb(offsettedIndex / colorCount, 1, 0.5);
 });
 // console.log(canvas);
 const raw = pixooMax.getStaticImage(canvas);
-console.log(raw);
+console.log(raw, raw.length);

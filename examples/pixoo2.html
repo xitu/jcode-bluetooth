@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <style>
+    canvas {
+      width: 300px;
+      height: 300px;
+    }
+  </style>
+</head>
+<body>
+  <canvas width="32" height="32"></canvas>
+  <script type="module">
+    import {Pixoo, PixooMax} from './jcode-ble.js';
+    const p = new PixooMax();
+    // const ctx = document.querySelector('canvas').getContext('2d');
+    const ctx = p.canvas.getContext('2d');
+    for(let i = 0; i < 32; i++) {
+      for(let j = 0; j < 32; j++) {
+        ctx.fillStyle = `rgb(${i * 8}, ${j * 8}, 0)`;
+        ctx.beginPath();
+        ctx.rect(i, j, 1, 1);
+        ctx.fill();
+      }
+    }
+  </script>
+</body>
+</html>
