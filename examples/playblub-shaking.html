@@ -9,7 +9,7 @@
 <body>
   <button>连接设备</button>
   <script type="module">
-    import {Playbulb} from './jcode-ble.js';
+    import {Playbulb} from './jcode-bluetooth.js';
     const device = new Playbulb();
     const button = document.querySelector('button');
     window.addEventListener('deviceconnected', ({detail}) => {

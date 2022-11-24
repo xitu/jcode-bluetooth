@@ -1,8 +1,8 @@
 {
-  "name": "jcode-ble",
-  "version": "0.0.1",
+  "name": "jcode-bluetooth",
+  "version": "0.1.0",
   "description": "jcode web bluetooth lib",
-  "main": "dist/jcode-ble.js",
+  "main": "dist/jcode-bluetooth.js",
   "type": "module",
   "scripts": {
     "start": "npm run dev",

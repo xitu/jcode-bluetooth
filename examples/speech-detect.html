@@ -61,7 +61,7 @@ let p = document.createElement('p');
 const words = document.querySelector('.words');
 words.appendChild(p);
 
-import {Playbulb} from './jcode-ble.js';
+import {Playbulb} from './jcode-bluetooth.js';
 const device = new Playbulb();
 const button = document.querySelector('button');
 window.addEventListener('deviceconnected', ({detail}) => {

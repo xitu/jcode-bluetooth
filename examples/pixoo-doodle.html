@@ -50,7 +50,7 @@
       div.dataset.y = Math.floor(i / 16);
       document.getElementById('matrix').appendChild(div);
     }
-    import {Pixoo} from './jcode-ble.js';
+    import {Pixoo} from './jcode-bluetooth.js';
     const pixoo = new Pixoo();
     const connected = await pixoo.isConnected();
     if(!connected) {

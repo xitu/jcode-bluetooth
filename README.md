@@ -15,7 +15,7 @@
 ### 控制Playbulb智能LED
 
 ```js
-import {Playbulb} from './jcode-ble.js';
+import {Playbulb} from './jcode-bluetooth.js';
 const device = new Playbulb();
 const button = document.querySelector('button');
 function sleep(ms) {

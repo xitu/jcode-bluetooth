@@ -1,7 +1,7 @@
 import esbuild from 'esbuild';
 const options = {
   entryPoints: ['src/index.js'],
-  outfile: 'dist/jcode-ble.js',
+  outfile: 'dist/jcode-bluetooth.js',
   bundle: true,
   format: 'esm',
 };
@@ -13,7 +13,7 @@ if(process.env.mode === 'production') {
     servedir: 'examples',
   }, {
     ...options,
-    outfile: 'examples/jcode-ble.js',
+    outfile: 'examples/jcode-bluetooth.js',
   }).then((server) => {
     console.log(`Server is running at ${server.host}:${server.port}`);
   });
