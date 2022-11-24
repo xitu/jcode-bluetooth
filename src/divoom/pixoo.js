@@ -1,32 +1,16 @@
 // https://github.com/jakobwesthoff/divoom-pixoo-max-nodejs
+import {TinyColor} from '@ctrl/tinycolor';
 import {int2hexlittle, number2HexString} from './utils.js';
 import {TimeboxEvoMessage} from './message.js';
 import {Canvas} from './canvas.js';
 
-const tempCanvas = new Canvas();
-
-function transferCanvasData(pixoo) {
-  const {canvas} = pixoo;
-  if(canvas.width !== tempCanvas.width) {
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-  }
-  const {width, height} = canvas;
-  const ctx = canvas.getContext('2d');
-  const {data} = ctx.getImageData(0, 0, width, height);
-  tempCanvas.transformByRowAndColumn((x, y, pixel, index) => {
-    const i = index * 4;
-    return [data[i], data[i + 1], data[i + 2]];
-  });
-
-  return tempCanvas;
-}
-
 export class Pixoo {
-  constructor(server = '//localhost:9527', width = 16, height = 16) {
-    this.server = server;
+  constructor(server = 'http://localhost:9527', width = 16, height = 16) {
+    this._server = server;
+    this._matrix = new Canvas(width, height);
     this._canvas = null;
     this._updatePromise = null;
+    this._updateDelay = 0;
 
     if(typeof OffscreenCanvas === 'function') {
       const pixoo = this;
@@ -71,11 +55,6 @@ export class Pixoo {
               pixoo.forceUpdate();
               return ret;
             };
-            this._ctx.clear = () => {
-              const ret = this._ctx.clearRect(0, 0, this.width, this.height);
-              pixoo.forceUpdate();
-              return ret;
-            };
             return this._ctx;
           }
           throw new Error(`Only 2d context is supported, not ${type}`);
@@ -85,23 +64,73 @@ export class Pixoo {
     }
   }
 
+  get width() {
+    return this._canvas.width;
+  }
+
+  get height() {
+    return this._canvas.height;
+  }
+
+  get canvas() {
+    return this._canvas;
+  }
+
+  get context() {
+    return this.canvas.getContext('2d');
+  }
+
+  get matrix() {
+    return this._matrix;
+  }
+
+  transferCanvasData() {
+    const {canvas, matrix} = this;
+    if(canvas.width !== matrix.width) {
+      matrix.width = canvas.width;
+      matrix.height = canvas.height;
+    }
+    const {width, height} = canvas;
+    const ctx = canvas.getContext('2d');
+    const {data} = ctx.getImageData(0, 0, width, height);
+    matrix.transformByRowAndColumn((x, y, pixel, index) => {
+      const i = index * 4;
+      return [data[i], data[i + 1], data[i + 2]];
+    });
+    return matrix;
+  }
+
+  setUpdateLatency(latency = 0) {
+    this._updateDelay = latency;
+  }
+
   forceUpdate() {
     if(!this._updatePromise) {
       this._updatePromise = new Promise((resolve) => {
-        requestAnimationFrame(() => {
-          this._updatePromise = null;
-          this.update();
-          resolve();
-        }, 0);
+        if(this._updateDelay <= 0) {
+          requestAnimationFrame(() => {
+            this._updatePromise = null;
+            this.update();
+            resolve();
+          });
+        } else {
+          setTimeout(() => {
+            this._updatePromise = null;
+            this.update();
+            resolve();
+          }, this._updateDelay);
+        }
       });
     }
   }
 
-  update() {
-    const canvas = transferCanvasData(this);
-    const message = this.getStaticImage(canvas);
-    this.send(message);
-    // const anmiData = this.getAnimationData([canvas]);
+  async update() {
+    const matrix = this.transferCanvasData();
+    const message = this.getStaticImage(matrix);
+    await this.send(message);
+    const e = new CustomEvent('pixooupdate', {detail: {device: this}});
+    window.dispatchEvent(e);
+    // const anmiData = this.getAnimationData([matrix]);
     // console.log(anmiData);
     // for(let i = 0; i < anmiData.length; i++) {
     //   const message = anmiData[i];
@@ -109,9 +138,18 @@ export class Pixoo {
     // }
   }
 
+  setEmulate(value = true) {
+    if(value) console.warn('Emulation mode is enabled. No data will be send to the device.');
+    this._emulate = value;
+  }
+
   async send(message) {
+    if(this._emulate) {
+      // eslint-disable-next-line no-return-await
+      return await Promise.resolve({status: 'OK'});
+    }
     // eslint-disable-next-line no-return-await
-    return await (await fetch(`${this.server}/send`, {
+    return await (await fetch(`${this._server}/send`, {
       method: 'POST',
       body: JSON.stringify({
         payload: message,
@@ -119,18 +157,51 @@ export class Pixoo {
     })).json();
   }
 
-  get canvas() {
-    return this._canvas;
+  async isConnected() {
+    try {
+      const answer = await this.send('460000');
+      return answer.status === 'OK';
+    } catch (ex) {
+      return false;
+    }
   }
 
-  getBrightness(brightness) {
+  setBrightness(brightness) {
     if(brightness < 0 || brightness > 100) {
       throw Error(
         `Brightness must be in percent between 0 and 100 (inclusive). The given value was ${brightness}`,
       );
     }
 
-    return new TimeboxEvoMessage(`74${number2HexString(brightness)}`).message;
+    const message = new TimeboxEvoMessage(`74${number2HexString(brightness)}`).message;
+    this.send(message);
+  }
+
+  clear() {
+    this.context.clearRect(0, 0, this.width, this.height);
+  }
+
+  setColor(x, y, color) {
+    this.matrix.assertBounds(x, y);
+    const {r, g, b} = new TinyColor(color);
+    const originColor = this.getColor(x, y);
+    if(r !== originColor.r || g !== originColor.g || b !== originColor.b) {
+      this.context.fillStyle = color;
+      this.context.fillRect(x, y, 1, 1);
+    }
+  }
+
+  setPixel(x, y, color) {
+    this.setColor(x, y, color);
+  }
+
+  getColor(x, y) {
+    const [r, g, b] = this.matrix.get(x, y);
+    return new TinyColor({r, g, b});
+  }
+
+  getPixel(x, y) {
+    return this.getColor(x, y);
   }
 
   generateImageData(canvas, delay = 0) {
@@ -203,7 +274,24 @@ export class Pixoo {
       const stringifiedColor = JSON.stringify(color);
       if(!paletteIndexMap.has(stringifiedColor)) {
         palette.push(color);
-        const index = palette.length - 1;
+        let index = palette.length - 1;
+        if(this.type === 'max' && index > 932) { // 对于PixooMax来说，颜色太多了
+          index = 932;
+          // 寻找接近的颜色
+          let minDist = Infinity;
+          for(let i = 0; i < 933; i++) {
+            const paletteColor = palette[i];
+            const distance = Math.hypot(
+              color[0] - paletteColor[0],
+              color[1] - paletteColor[1],
+              color[2] - paletteColor[2],
+            );
+            if(distance < minDist) {
+              minDist = distance;
+              index = i;
+            }
+          }
+        }
         paletteIndexMap.set(stringifiedColor, index);
       }
       screen.push(paletteIndexMap.get(stringifiedColor));
@@ -218,9 +306,6 @@ export class Pixoo {
 
     if(this.type === 'max' && palette.length > 933) {
       console.warn('too many colors, some colors will be lost');
-      for(let i = 0; i < screen.length; i++) {
-        screen[i] = Math.min(screen[i], 932);
-      }
       palette.length = 933;
     }
 

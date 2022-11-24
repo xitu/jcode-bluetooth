@@ -24,7 +24,7 @@
       const pos = [[0, 0], [2, 64], [2, 126]];
       let idx = 0;
       setInterval(() => {
-        ctx.clear();
+        ctx.clearRect(0, 0, 32, 32);
         ctx.drawImage(img, pos[idx][0], pos[idx][1], 86, 60, 5, 10, 20, 13);
         idx = (idx + 1) % pos.length;
       }, 100);

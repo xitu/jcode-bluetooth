@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <style>
+    #matrix {
+      margin: auto;
+      width: 90vw;
+      height: 90vw;
+      max-width: 800px;
+      max-height: 800px;
+      border-bottom: solid 1px #000E;
+      border-right: solid 1px #000E;
+      background-image: linear-gradient(90deg, rgba(88, 88, 88, 0.5) 2.5%, transparent 2.5%), linear-gradient( rgba(88, 88, 88, 0.95) 2.5%, transparent 2.5%);
+      background-size: 6.25% 6.25%;
+      background-repeat: repeat;
+      background-color:black;
+      display:grid;
+      grid-template-columns:repeat(16, 6.25%);
+      grid-template-rows:repeat(16, 6.25%);
+    }
+
+    #matrix > div {
+      cursor: crosshair;
+      border: solid 1px #666;
+    }
+
+    .control-panel {
+      padding-top: 1rem;
+      margin: auto;
+      width: 90vw;
+    }
+  </style>
+</head>
+<body>
+  <div class="doodle">
+    <div id="matrix"></div>
+    <div class="control-panel">
+      屏幕亮度：<input type="range" id="brightness" min="0" max="100" step="1" value="50"/>
+      颜色：<input id="colorPick" type="color" value="#ffff00"/>
+    </div>
+  </div>
+  <script type="module">
+    for(let i = 0; i < 256; i++) {
+      const div = document.createElement('div');
+      div.dataset.x = i % 16;
+      div.dataset.y = Math.floor(i / 16);
+      document.getElementById('matrix').appendChild(div);
+    }
+    import {Pixoo} from './jcode-ble.js';
+    const pixoo = new Pixoo();
+    const connected = await pixoo.isConnected();
+    if(!connected) {
+      console.warn('没有启动Pixoo设备服务，启用模拟模式，如需真机运行，请确定服务已启动，参考 https://github.com/xitu/jcode-bluetooth');
+      pixoo.setEmulate();
+    }
+
+    pixoo.clear();
+    pixoo.setBrightness(brightness.value);
+    pixoo.setUpdateLatency(200);
+
+    window.pixoo = pixoo;
+
+    brightness.addEventListener('change', (evt) => {
+      const value = evt.target.value;
+      pixoo.setBrightness(value);
+    });
+
+    let pen = colorPick.value;
+    colorPick.addEventListener('change', (evt) => {
+      pen = evt.target.value;
+    });
+
+    matrix.addEventListener('pointerdown', (evt) => {
+      const avaliable = evt.target !== matrix;
+      if(avaliable) {
+        const {x, y} = evt.target.dataset;
+        evt.target.style.backgroundColor = pen;
+        pixoo.setPixel(Number(x), Number(y), pen);
+      }
+    });
+    matrix.addEventListener('pointermove', (evt) => {
+      const avaliable = evt.target !== matrix && (evt.pointerType !== 'mouse' || evt.buttons === 1);
+      if(avaliable) {
+        const {x, y} = evt.target.dataset;
+        evt.target.style.backgroundColor = pen;
+        pixoo.setPixel(Number(x), Number(y), pen);
+      }
+    });
+  </script>
+</body>
+</html>
