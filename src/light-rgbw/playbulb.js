@@ -21,28 +21,43 @@ class Playbulb extends Device {
   }
 
   async setColor(value) {
-    const color = new TinyColor(value);
-    const {r, g, b} = color.toRgb();
-    const a = color.getAlpha();
-    const w = (1 - a) * 0xff;
-    await this._lightCharacteristic.writeValue(new Uint8Array([w, r, g, b]));
+    try {
+      const color = new TinyColor(value);
+      const {r, g, b} = color.toRgb();
+      const a = color.getAlpha();
+      const w = (1 - a) * 0xff;
+      await this._lightCharacteristic.writeValue(new Uint8Array([w, r, g, b]));
+    } catch (ex) {
+      await this.connect();
+      this.setColor(value);
+    }
   }
 
   async getColor() {
-    const buffer = await this._lightCharacteristic.readValue();
-    const a = 1 - buffer.getUint8(0) / 255;
-    return new TinyColor({r: buffer.getUint8(1), g: buffer.getUint8(2), b: buffer.getUint8(3), a});
+    try {
+      const buffer = await this._lightCharacteristic.readValue();
+      const a = 1 - buffer.getUint8(0) / 255;
+      return new TinyColor({r: buffer.getUint8(1), g: buffer.getUint8(2), b: buffer.getUint8(3), a});
+    } catch (ex) {
+      await this.connect();
+      return this.getColor();
+    }
   }
 
   async setFlashingColor(value) {
-    const color = new TinyColor(value);
-    const {r, g, b} = color.toRgb();
-    const a = color.getAlpha();
-    const w = (1 - a) * 0xff;
-    await this._effectCharacteristic.writeValue(new Uint8Array([
-      w, r, g, b,
-      0x00, 0x00, 0x1F, 0x00,
-    ]));
+    try {
+      const color = new TinyColor(value);
+      const {r, g, b} = color.toRgb();
+      const a = color.getAlpha();
+      const w = (1 - a) * 0xff;
+      await this._effectCharacteristic.writeValue(new Uint8Array([
+        w, r, g, b,
+        0x00, 0x00, 0x1F, 0x00,
+      ]));
+    } catch (ex) {
+      await this.connect();
+      this.setFlashingColor(value);
+    }
   }
 }
 

@@ -16,6 +16,7 @@
   <canvas width="32" height="32"></canvas>
   <script type="module">
     import {Pixoo, PixooMax} from './jcode-bluetooth.js';
+
     const p = new PixooMax();
     const ctx = p.canvas.getContext('2d');
     const isConnected = await p.isConnected();

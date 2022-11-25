@@ -251,12 +251,14 @@ export class Pixoo {
 
     const allData = frameData.join('');
     const totalSize = allData.length / 2;
+    const chunkSize = 400;
     // console.log(totalSize, frameData[0].length);
-    const nchunks = Math.ceil(allData.length / 400);
+    const nchunks = Math.ceil(allData.length / chunkSize);
     const chunks = [];
     for(let i = 0; i < nchunks; i++) {
+      const body = allData.substr(i * chunkSize, chunkSize);
       const chunkHeader = int2hexlittle(totalSize) + number2HexString(i);
-      const payload = new TimeboxEvoMessage(`49${chunkHeader}${allData.substr(i * 400, 400)}`);
+      const payload = new TimeboxEvoMessage(`49${chunkHeader}${body}`);
       chunks.push(payload.message);
     }
     return chunks;
