@@ -28,10 +28,7 @@
         ctx.fill();
       }
     }
-    window.addEventListener('pixooupdate', ({detail}) => {
-      console.log(detail);
-    });
-    window.pixoo = p;
+
     // const p = new Pixoo();
     // const ctx = p.canvas.getContext('2d');
     // for(let i = 0; i < 16; i++) {
@@ -42,6 +39,11 @@
     //     ctx.fill();
     //   }
     // }
+
+    window.addEventListener('pixooupdate', ({detail}) => {
+      console.log(detail);
+    });
+    window.pixoo = p;
   </script>
 </body>
 </html>

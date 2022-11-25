@@ -126,16 +126,21 @@ export class Pixoo {
 
   async update() {
     const matrix = this.transferCanvasData();
+
     const message = this.getStaticImage(matrix);
     await this.send(message);
-    const e = new CustomEvent('pixooupdate', {detail: {device: this}});
-    window.dispatchEvent(e);
+
     // const anmiData = this.getAnimationData([matrix]);
-    // console.log(anmiData);
+    // const mp = [];
     // for(let i = 0; i < anmiData.length; i++) {
     //   const message = anmiData[i];
-    //   this.send(message);
+    //   // eslint-disable-next-line no-await-in-loop
+    //   mp.push(this.send(message));
     // }
+    // await Promise.all(mp);
+
+    const e = new CustomEvent('pixooupdate', {detail: {device: this}});
+    window.dispatchEvent(e);
   }
 
   setEmulate(value = true) {
@@ -245,13 +250,14 @@ export class Pixoo {
     }
 
     const allData = frameData.join('');
-    const totalSize = allData.length / 2 - frames.length; // 扣除 aa
+    const totalSize = allData.length / 2;
     // console.log(totalSize, frameData[0].length);
     const nchunks = Math.ceil(allData.length / 400);
     const chunks = [];
     for(let i = 0; i < nchunks; i++) {
       const chunkHeader = int2hexlittle(totalSize) + number2HexString(i);
-      chunks.push(`49${chunkHeader}${allData.substr(i * 400, 400)}`);
+      const payload = new TimeboxEvoMessage(`49${chunkHeader}${allData.substr(i * 400, 400)}`);
+      chunks.push(payload.message);
     }
     return chunks;
   }
