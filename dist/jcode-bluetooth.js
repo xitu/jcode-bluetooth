@@ -6,33 +6,38 @@ var Device = class {
     this._server = null;
   }
   async connect() {
-    const { filters, optionalServices } = this;
-    const acceptAllDevices = filters.length <= 0;
-    const options = {};
-    if (acceptAllDevices)
-      options.acceptAllDevices = true;
-    else {
-      options.filters = filters;
-      options.optionalServices = optionalServices;
+    if (!this._device) {
+      const { filters, optionalServices } = this;
+      const acceptAllDevices = filters.length <= 0;
+      const options = {};
+      if (acceptAllDevices)
+        options.acceptAllDevices = true;
+      else {
+        options.filters = filters;
+        options.optionalServices = optionalServices;
+      }
+      const device = await navigator.bluetooth.requestDevice(options);
+      device.addEventListener("gattserverdisconnected", () => {
+        this._server = null;
+        const e2 = new CustomEvent("devicedisconnected", { detail: { device: this } });
+        window.dispatchEvent(e2);
+      });
+      this._device = device;
     }
-    const device = await navigator.bluetooth.requestDevice(options);
-    device.addEventListener("gattserverdisconnected", () => {
-      const e2 = new CustomEvent("devicedisconnected", { detail: { device: this } });
-      window.dispatchEvent(e2);
-    });
-    this._server = await device.gatt.connect();
+    this._server = await this._device.gatt.connect();
     const e = new CustomEvent("deviceconnected", { detail: { device: this } });
     window.dispatchEvent(e);
     return this;
   }
   async disconnect() {
     await this.server.device.gatt.disconnect();
+    this._server = null;
   }
   get server() {
-    if (this._server === null) {
-      throw new ReferenceError("server is not connected");
-    }
     return this._server;
+  }
+  get isConnected() {
+    return this._server !== null;
   }
 };
 
@@ -936,32 +941,47 @@ var Playbulb = class extends Device {
     return this;
   }
   async setColor(value) {
-    const color = new TinyColor(value);
-    const { r, g, b } = color.toRgb();
-    const a = color.getAlpha();
-    const w = (1 - a) * 255;
-    await this._lightCharacteristic.writeValue(new Uint8Array([w, r, g, b]));
+    try {
+      const color = new TinyColor(value);
+      const { r, g, b } = color.toRgb();
+      const a = color.getAlpha();
+      const w = (1 - a) * 255;
+      await this._lightCharacteristic.writeValue(new Uint8Array([w, r, g, b]));
+    } catch (ex) {
+      await this.connect();
+      this.setColor(value);
+    }
   }
   async getColor() {
-    const buffer = await this._lightCharacteristic.readValue();
-    const a = 1 - buffer.getUint8(0) / 255;
-    return new TinyColor({ r: buffer.getUint8(1), g: buffer.getUint8(2), b: buffer.getUint8(3), a });
+    try {
+      const buffer = await this._lightCharacteristic.readValue();
+      const a = 1 - buffer.getUint8(0) / 255;
+      return new TinyColor({ r: buffer.getUint8(1), g: buffer.getUint8(2), b: buffer.getUint8(3), a });
+    } catch (ex) {
+      await this.connect();
+      return this.getColor();
+    }
   }
   async setFlashingColor(value) {
-    const color = new TinyColor(value);
-    const { r, g, b } = color.toRgb();
-    const a = color.getAlpha();
-    const w = (1 - a) * 255;
-    await this._effectCharacteristic.writeValue(new Uint8Array([
-      w,
-      r,
-      g,
-      b,
-      0,
-      0,
-      31,
-      0
-    ]));
+    try {
+      const color = new TinyColor(value);
+      const { r, g, b } = color.toRgb();
+      const a = color.getAlpha();
+      const w = (1 - a) * 255;
+      await this._effectCharacteristic.writeValue(new Uint8Array([
+        w,
+        r,
+        g,
+        b,
+        0,
+        0,
+        31,
+        0
+      ]));
+    } catch (ex) {
+      await this.connect();
+      this.setFlashingColor(value);
+    }
   }
 };
 
@@ -1311,12 +1331,15 @@ var Pixoo = class {
       frameData.push(this.generateImageData(canvas, delay));
     }
     const allData = frameData.join("");
-    const totalSize = allData.length / 2 - frames.length;
-    const nchunks = Math.ceil(allData.length / 400);
+    const totalSize = allData.length / 2;
+    const chunkSize = 400;
+    const nchunks = Math.ceil(allData.length / chunkSize);
     const chunks = [];
     for (let i = 0; i < nchunks; i++) {
+      const body = allData.substr(i * chunkSize, chunkSize);
       const chunkHeader = int2hexlittle(totalSize) + number2HexString(i);
-      chunks.push(`49${chunkHeader}${allData.substr(i * 400, 400)}`);
+      const payload = new TimeboxEvoMessage(`49${chunkHeader}${body}`);
+      chunks.push(payload.message);
     }
     return chunks;
   }
