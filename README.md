@@ -6,6 +6,7 @@
 
 -   [x] [Mipow-Playbulb-LED](https://www.mipow.com/products/mipow-smart-bulb) | **GATT ✔︎** | **SPP x**
 -   [x] [Mipow-Playbulb-Sphere](https://www.mipow.com/products/playbulb-sphere) | **GATT ✔︎** | **SPP x**
+-   [x] [Mipow-Playbulb-Candle](https://www.mipow.com/products/playbulb-candle) | **GATT ✔︎** | **SPP x**
 -   [x] [Pixoo 16x16](https://divoom.com/products/divoom-pixoo) | **GATT x** | **SPP ✔︎**
 -   [x] [Pixoo-Max](https://divoom.com/products/divoom-pixoo-max) | **GATT x** | **SPP ✔︎**
 
