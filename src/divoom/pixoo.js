@@ -2,12 +2,12 @@
 import {TinyColor} from '@ctrl/tinycolor';
 import {int2hexlittle, number2HexString} from './utils.js';
 import {TimeboxEvoMessage} from './message.js';
-import {Canvas} from './canvas.js';
+import {Matrix} from './matrix.js';
 
 export class Pixoo {
   constructor(server = 'http://localhost:9527', width = 16, height = 16) {
     this._server = server;
-    this._matrix = new Canvas(width, height);
+    this._matrix = new Matrix(width, height);
     this._canvas = null;
     this._updatePromise = null;
     this._updateDelay = 0;
@@ -84,8 +84,7 @@ export class Pixoo {
     return this._matrix;
   }
 
-  transferCanvasData() {
-    const {canvas, matrix} = this;
+  transferCanvasData(canvas = this.canvas, matrix = this.matrix) {
     if(canvas.width !== matrix.width) {
       matrix.width = canvas.width;
       matrix.height = canvas.height;
@@ -137,6 +136,11 @@ export class Pixoo {
 
     const e = new CustomEvent('pixooupdate', {detail: {device: this}});
     window.dispatchEvent(e);
+  }
+
+  async transferAnimation(frames, speed = 100) {
+    const messages = this.getAnimationData(frames, speed);
+    await this.send(messages.join(''));
   }
 
   setEmulate(value = true) {
@@ -205,14 +209,14 @@ export class Pixoo {
     return this.getColor(x, y);
   }
 
-  generateImageData(canvas, delay = 0) {
+  generateImageData(matrix, delay = 0) {
     const frameTimeString = int2hexlittle(delay);
     let paletteTypeString = '00';
 
-    const {colorBufferString, screenBufferString, colorCount} = this.encodeCanvasToFrame(canvas);
+    const {colorBufferString, screenBufferString, colorCount} = this.encodeMatrixToFrame(matrix);
     let paletteCountString = colorCount;
 
-    if(canvas.width > 16) {
+    if(matrix.width > 16) {
       paletteCountString = int2hexlittle(paletteCountString);
       paletteTypeString = '03';
     } else {
@@ -240,9 +244,9 @@ export class Pixoo {
 
     const frameData = [];
     for(let i = 0; i < frames.length; i++) {
-      const canvas = frames[i];
+      const matrix = frames[i];
       const delay = speed * i;
-      frameData.push(this.generateImageData(canvas, delay));
+      frameData.push(this.generateImageData(matrix, delay));
     }
 
     const allData = frameData.join('');
@@ -264,8 +268,8 @@ export class Pixoo {
     return chunks;
   }
 
-  getStaticImage(canvas) {
-    const imageData = this.generateImageData(canvas);
+  getStaticImage(matrix) {
+    const imageData = this.generateImageData(matrix);
     const header = '44000a0a04';
     const payload = new TimeboxEvoMessage(
       header + imageData,
@@ -273,12 +277,12 @@ export class Pixoo {
     return payload.message;
   }
 
-  encodeCanvasToFrame(canvas) {
+  encodeMatrixToFrame(matrix) {
     const palette = [];
     const paletteIndexMap = new Map();
     const screen = [];
 
-    canvas.traverseByRowAndColumn((_x, _y, color) => {
+    matrix.traverseByRowAndColumn((_x, _y, color) => {
       const stringifiedColor = JSON.stringify(color);
       if(!paletteIndexMap.has(stringifiedColor)) {
         palette.push(color);

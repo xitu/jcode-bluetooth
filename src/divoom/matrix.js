@@ -1,5 +1,5 @@
 // pixel data
-export class Canvas {
+export class Matrix {
   constructor(width = 32, height = 32) {
     this._width = width;
     this._height = height;
@@ -28,7 +28,7 @@ export class Canvas {
   }
 
   clone() {
-    const cloned = new Canvas(this._width, this._height);
+    const cloned = new Matrix(this._width, this._height);
     cloned.pixels = [...this.pixels];
     return cloned;
   }
