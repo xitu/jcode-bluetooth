@@ -21,29 +21,28 @@
 
     // play animations
     const m = p.matrix.clone();
-    const frames = [];
     m.transformByRowAndColumn((x, y, color) => {
       if(x > 10 && x < 18 && y > 10 && y < 18) {
         return [255, 0, 0];
       }
       return color;
     });
-    frames.push(m.clone());
+    p.appendAnimationFrame(m, 0);
     m.transformByRowAndColumn((x, y, color) => {
       if(x > 10 && x < 18 && y > 10 && y < 18) {
         return [0, 255, 0];
       }
       return color;
     });
-    frames.push(m.clone());
+    p.appendAnimationFrame(m, 1000);
     m.transformByRowAndColumn((x, y, color) => {
       if(x > 10 && x < 18 && y > 10 && y < 18) {
         return [0, 0, 255];
       }
       return color;
     });
-    frames.push(m.clone());
-    p.transferAnimation(frames, 1000);
+    p.appendAnimationFrame(m, 2000);
+    p.transferAnimation();
   </script>
 </body>
 </html>

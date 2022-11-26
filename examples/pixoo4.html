@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <style>
+    canvas {
+      width: 300px;
+      height: 300px;
+    }
+  </style>
+</head>
+<body>
+  <canvas width="32" height="32"></canvas>
+  <script type="module">
+    import {Pixoo, PixooMax} from './jcode-bluetooth.js';
+
+    const p = new PixooMax();
+
+    const ofc = new OffscreenCanvas(32, 32);
+    const ctx = ofc.getContext('2d');
+
+    // play animations
+    ctx.fillStyle = 'yellow';
+    ctx.fillRect(10, 10, 8, 8);
+    p.appendAnimationFrame(ofc, 0);
+    ctx.fillStyle = 'green';
+    ctx.fillRect(10, 10, 8, 8);
+    p.appendAnimationFrame(ofc, 1000);
+    ctx.fillStyle = 'orange';
+    ctx.fillRect(10, 10, 8, 8);
+    p.appendAnimationFrame(ofc, 2000);
+    p.transferAnimation();
+  </script>
+</body>
+</html>

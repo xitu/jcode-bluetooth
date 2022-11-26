@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <style>
+    canvas {
+      width: 300px;
+      height: 300px;
+    }
+  </style>
+</head>
+<body>
+  <canvas width="32" height="32"></canvas>
+  <script type="module">
+    import {Pixoo, PixooMax, loadImage} from './jcode-bluetooth.js';
+
+    const p = new PixooMax();
+
+    const ofc = new OffscreenCanvas(32, 32);
+    const ctx = ofc.getContext('2d');
+
+    const img = await loadImage('https://p.ssl.qhimg.com/d/inn/c886d09f/birds.png');
+
+    const pos = [[0, 0], [2, 64], [2, 126], [2, 126]];
+    const colors = ['red', 'green', 'blue'];
+    pos.forEach(([x, y], i) => {
+      ctx.clearRect(0, 0, 32, 32);
+      ctx.fillStyle = colors[i % 3];
+      ctx.fillRect(0, 0, 16, 16);
+      // ctx.drawImage(img, x, y, 86, 60, 5, 10, 20, 13);
+      p.appendAnimationFrame(ofc, i * 1000);
+    });
+
+    // play animations
+    p.transferAnimation();
+  </script>
+</body>
+</html>

@@ -11,6 +11,7 @@ export class Pixoo {
     this._canvas = null;
     this._updatePromise = null;
     this._updateDelay = 0;
+    this._animationFrames = [];
 
     if(typeof OffscreenCanvas === 'function') {
       const pixoo = this;
@@ -129,18 +130,33 @@ export class Pixoo {
     const message = this.getStaticImage(matrix);
     await this.send(message);
 
-    // const anmiData = this.getAnimationData([matrix]);
-    // const message = anmiData.join('');
-    // console.log(anmiData.length, message.length);
+    // const animData = this.getAnimationData([matrix]);
+    // const message = animData.join('');
+    // console.log(animData.length, message.length);
     // await this.send(message);
 
     const e = new CustomEvent('pixooupdate', {detail: {device: this}});
     window.dispatchEvent(e);
   }
 
-  async transferAnimation(frames, speed = 100) {
-    const messages = this.getAnimationData(frames, speed);
+  async transferAnimation(frames = this._animationFrames) {
+    const messages = this.getAnimationData(frames);
     await this.send(messages.join(''));
+  }
+
+  appendAnimationFrame(image, delay = 0) {
+    let frame;
+    if(typeof image.getContext === 'function') {
+      // canvas
+      frame = this.transferCanvasData(image, this._matrix.clone());
+    } else if(!(image instanceof Matrix) && typeof OffscreenCanvas === 'function') {
+      const ofc = new OffscreenCanvas(this.width, this.height);
+      ofc.getContext('2d').drawImage(image, 0, 0, this.width, this.height);
+      frame = this.transferCanvasData(ofc, this._matrix.clone());
+    } else {
+      frame = image.clone();
+    }
+    this._animationFrames.push({frame, delay});
   }
 
   setEmulate(value = true) {
@@ -237,22 +253,21 @@ export class Pixoo {
     return `aa${frameSizeString}${frameTimeString}${paletteTypeString}${paletteCountString}${colorBufferString}${screenBufferString}`;
   }
 
-  getAnimationData(frames = [], speed = 100) {
+  getAnimationData(frames) {
     if(frames.length <= 0) {
       throw new Error('no frames given');
     }
 
     const frameData = [];
     for(let i = 0; i < frames.length; i++) {
-      const matrix = frames[i];
-      const delay = speed * i;
-      frameData.push(this.generateImageData(matrix, delay));
+      const {frame, delay} = frames[i];
+      frameData.push(this.generateImageData(frame, delay));
     }
 
     const allData = frameData.join('');
     const totalSize = allData.length / 2;
     const chunkSize = 400;
-    // console.log(totalSize, frameData[0].length);
+    // console.log(totalSize, frameData.length, frameData[0].length);
     const nchunks = Math.ceil(allData.length / chunkSize);
     const chunks = [];
     for(let i = 0; i < nchunks; i++) {

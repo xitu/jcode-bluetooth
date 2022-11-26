@@ -57,3 +57,12 @@ export function brightness2HexString(brightness) {
   }
   return number2HexString(Math.trunc(brightness));
 }
+
+export function loadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = src;
+    img.onload = () => resolve(img);
+  });
+}
