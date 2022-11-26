@@ -131,13 +131,9 @@ export class Pixoo {
     await this.send(message);
 
     // const anmiData = this.getAnimationData([matrix]);
-    // const mp = [];
-    // for(let i = 0; i < anmiData.length; i++) {
-    //   const message = anmiData[i];
-    //   // eslint-disable-next-line no-await-in-loop
-    //   mp.push(this.send(message));
-    // }
-    // await Promise.all(mp);
+    // const message = anmiData.join('');
+    // console.log(anmiData.length, message.length);
+    // await this.send(message);
 
     const e = new CustomEvent('pixooupdate', {detail: {device: this}});
     window.dispatchEvent(e);
@@ -257,7 +253,11 @@ export class Pixoo {
     const chunks = [];
     for(let i = 0; i < nchunks; i++) {
       const body = allData.substr(i * chunkSize, chunkSize);
-      const chunkHeader = int2hexlittle(totalSize) + number2HexString(i);
+      let chunkHeader = int2hexlittle(totalSize) + number2HexString(i);
+      if(this.type === 'max') {
+        // eslint-disable-next-line prefer-template
+        chunkHeader = int2hexlittle(totalSize) + '0000' + int2hexlittle(i);
+      }
       const payload = new TimeboxEvoMessage(`49${chunkHeader}${body}`);
       chunks.push(payload.message);
     }

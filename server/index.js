@@ -38,9 +38,11 @@ function unhexlify(str) {
   return result;
 }
 
+const BUFFER_SIZE = 1332;
 function stringToBuffer(message) {
   const bufferArray = [];
-  message.match(/.{1,1332}/g).forEach((part) => {
+  const regExp = new RegExp(`.{1,${BUFFER_SIZE}}`, 'g');
+  message.match(regExp).forEach((part) => {
     bufferArray.push(Buffer.from(unhexlify(part), 'binary'));
   });
   return bufferArray;
@@ -58,15 +60,18 @@ function write(buffer) {
       return reject(new Error('Not connected'));
     }
     connection.write(buffer, (error, bytes) => {
-      console.log('==>', buffer, bytes);
+      console.log('==>', error, buffer, bytes);
       if(error) {
         connection.close(); // 重新连接
         connection = null;
         tryConnect(1000).then((conn) => {
           console.log('reconnected!');
           connection = conn;
-          if(tempBuffer) write(tempBuffer);
-          tempBuffer = null;
+          if(tempBuffer) {
+            return conn.write(tempBuffer, () => {
+              tempBuffer = null;
+            });
+          }
         });
       }
       return error ? reject(error) : resolve(bytes);
