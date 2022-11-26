@@ -5,8 +5,8 @@ class Device {
     this._server = null;
   }
 
-  async connect() {
-    if(!this._device) {
+  async connect(rebound = true) {
+    if(rebound || !this._device) {
       const {filters, optionalServices} = this;
       const acceptAllDevices = filters.length <= 0;
       const options = {};

@@ -1,3 +1,10 @@
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => {
+  __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+  return value;
+};
+
 // src/device.js
 var Device = class {
   constructor({ filters = [], optionalServices = [] } = {}) {
@@ -5,8 +12,8 @@ var Device = class {
     this.optionalServices = optionalServices;
     this._server = null;
   }
-  async connect() {
-    if (!this._device) {
+  async connect(rebound = true) {
+    if (rebound || !this._device) {
       const { filters, optionalServices } = this;
       const acceptAllDevices = filters.length <= 0;
       const options = {};
@@ -926,29 +933,39 @@ var TinyColor = function() {
 // src/light-rgbw/playbulb.js
 var COLOR_UUID = 65532;
 var COLOR_EFFECT_UUID = 65531;
-var Playbulb = class extends Device {
+var _Playbulb = class extends Device {
   constructor({
     filters = [{ namePrefix: "PLAYBULB" }],
     optionalServices = [65280, 65282, 65295]
   } = {}) {
     super({ filters, optionalServices });
   }
-  async connect() {
-    await super.connect();
+  async connect(rebound = true) {
+    await super.connect(rebound);
     const service = (await this.server.getPrimaryServices())[0];
     this._lightCharacteristic = await service.getCharacteristic(COLOR_UUID);
     this._effectCharacteristic = await service.getCharacteristic(COLOR_EFFECT_UUID);
     return this;
+  }
+  async setBrightness(value) {
+    const color = await this.getColor();
+    const a = 1 - value / 255;
+    color.setAlpha(a);
+    await this.setColor(color);
+  }
+  async getBrightness() {
+    const color = await this.getColor();
+    return Math.round((1 - color.getAlpha()) * 255);
   }
   async setColor(value) {
     try {
       const color = new TinyColor(value);
       const { r, g, b } = color.toRgb();
       const a = color.getAlpha();
-      const w = (1 - a) * 255;
+      const w = Math.round((1 - a) * 255);
       await this._lightCharacteristic.writeValue(new Uint8Array([w, r, g, b]));
     } catch (ex) {
-      await this.connect();
+      await this.connect(false);
       this.setColor(value);
     }
   }
@@ -958,11 +975,11 @@ var Playbulb = class extends Device {
       const a = 1 - buffer.getUint8(0) / 255;
       return new TinyColor({ r: buffer.getUint8(1), g: buffer.getUint8(2), b: buffer.getUint8(3), a });
     } catch (ex) {
-      await this.connect();
+      await this.connect(false);
       return this.getColor();
     }
   }
-  async setFlashingColor(value) {
+  async setColorEffect(value, effect = 0, speed = 31) {
     try {
       const color = new TinyColor(value);
       const { r, g, b } = color.toRgb();
@@ -973,17 +990,38 @@ var Playbulb = class extends Device {
         r,
         g,
         b,
+        effect,
         0,
-        0,
-        31,
+        speed,
         0
       ]));
     } catch (ex) {
-      await this.connect();
-      this.setFlashingColor(value);
+      await this.connect(false);
+      this.setCandleEffectColor(value);
     }
   }
+  async setFlashingColor(value, speed = 31) {
+    await this.setColorEffect(value, _Playbulb.FLASH, speed);
+  }
+  async setCandlingColor(value, speed = 16) {
+    await this.setColorEffect(value, _Playbulb.CANDLE, speed);
+  }
+  async setPulsingColor(value, speed = 3) {
+    await this.setColorEffect(value, _Playbulb.PULSE, speed);
+  }
+  async setRainbowJumpingColor(value, speed = 255) {
+    await this.setColorEffect(value, _Playbulb.RAINBOW_JUMP, speed);
+  }
+  async setRainbowFadingColor(value, speed = 31) {
+    await this.setColorEffect(value, _Playbulb.RAINBOW_JFADE, speed);
+  }
 };
+var Playbulb = _Playbulb;
+__publicField(Playbulb, "FLASH", 0);
+__publicField(Playbulb, "PULSE", 1);
+__publicField(Playbulb, "RAINBOW_JUMP", 2);
+__publicField(Playbulb, "RAINBOW_JFADE", 3);
+__publicField(Playbulb, "CANDLE", 4);
 
 // src/divoom/utils.js
 function int2hexlittle(value) {
@@ -999,6 +1037,14 @@ function number2HexString(int) {
     throw new Error("number2HexString works only with number between 0 and 255");
   }
   return Math.round(int).toString(16).padStart(2, "0");
+}
+function loadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = src;
+    img.onload = () => resolve(img);
+  });
 }
 
 // src/divoom/message.js
@@ -1140,6 +1186,7 @@ var Pixoo = class {
     this._canvas = null;
     this._updatePromise = null;
     this._updateDelay = 0;
+    this._animationFrames = [];
     if (typeof OffscreenCanvas === "function") {
       const pixoo = this;
       class PixooCanvas extends OffscreenCanvas {
@@ -1249,9 +1296,22 @@ var Pixoo = class {
     const e = new CustomEvent("pixooupdate", { detail: { device: this } });
     window.dispatchEvent(e);
   }
-  async transferAnimation(frames, speed = 100) {
-    const messages = this.getAnimationData(frames, speed);
+  async transferAnimation(frames = this._animationFrames) {
+    const messages = this.getAnimationData(frames);
     await this.send(messages.join(""));
+  }
+  appendAnimationFrame(image, delay = 0) {
+    let frame;
+    if (typeof image.getContext === "function") {
+      frame = this.transferCanvasData(image, this._matrix.clone());
+    } else if (!(image instanceof Matrix) && typeof OffscreenCanvas === "function") {
+      const ofc = new OffscreenCanvas(this.width, this.height);
+      ofc.getContext("2d").drawImage(image, 0, 0, this.width, this.height);
+      frame = this.transferCanvasData(ofc, this._matrix.clone());
+    } else {
+      frame = image.clone();
+    }
+    this._animationFrames.push({ frame, delay });
   }
   setEmulate(value = true) {
     if (value)
@@ -1323,15 +1383,14 @@ var Pixoo = class {
     const frameSizeString = int2hexlittle(fsize);
     return `aa${frameSizeString}${frameTimeString}${paletteTypeString}${paletteCountString}${colorBufferString}${screenBufferString}`;
   }
-  getAnimationData(frames = [], speed = 100) {
+  getAnimationData(frames) {
     if (frames.length <= 0) {
       throw new Error("no frames given");
     }
     const frameData = [];
     for (let i = 0; i < frames.length; i++) {
-      const matrix = frames[i];
-      const delay = speed * i;
-      frameData.push(this.generateImageData(matrix, delay));
+      const { frame, delay } = frames[i];
+      frameData.push(this.generateImageData(frame, delay));
     }
     const allData = frameData.join("");
     const totalSize = allData.length / 2;
@@ -1433,5 +1492,6 @@ export {
   Device,
   Pixoo,
   PixooMax,
-  Playbulb
+  Playbulb,
+  loadImage
 };

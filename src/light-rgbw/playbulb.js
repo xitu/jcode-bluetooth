@@ -23,12 +23,24 @@ class Playbulb extends Device {
     super({filters, optionalServices});
   }
 
-  async connect() {
-    await super.connect();
+  async connect(rebound = true) {
+    await super.connect(rebound);
     const service = (await this.server.getPrimaryServices())[0];
     this._lightCharacteristic = await service.getCharacteristic(COLOR_UUID);
     this._effectCharacteristic = await service.getCharacteristic(COLOR_EFFECT_UUID);
     return this;
+  }
+
+  async setBrightness(value) {
+    const color = await this.getColor();
+    const a = 1 - value / 0xff;
+    color.setAlpha(a);
+    await this.setColor(color);
+  }
+
+  async getBrightness() {
+    const color = await this.getColor();
+    return Math.round((1 - color.getAlpha()) * 0xff);
   }
 
   async setColor(value) {
@@ -36,10 +48,10 @@ class Playbulb extends Device {
       const color = new TinyColor(value);
       const {r, g, b} = color.toRgb();
       const a = color.getAlpha();
-      const w = (1 - a) * 0xff;
+      const w = Math.round((1 - a) * 0xff);
       await this._lightCharacteristic.writeValue(new Uint8Array([w, r, g, b]));
     } catch (ex) {
-      await this.connect();
+      await this.connect(false);
       this.setColor(value);
     }
   }
@@ -50,7 +62,7 @@ class Playbulb extends Device {
       const a = 1 - buffer.getUint8(0) / 255;
       return new TinyColor({r: buffer.getUint8(1), g: buffer.getUint8(2), b: buffer.getUint8(3), a});
     } catch (ex) {
-      await this.connect();
+      await this.connect(false);
       return this.getColor();
     }
   }
@@ -66,7 +78,7 @@ class Playbulb extends Device {
         effect, 0x00, speed, 0x00,
       ]));
     } catch (ex) {
-      await this.connect();
+      await this.connect(false);
       this.setCandleEffectColor(value);
     }
   }

@@ -51,73 +51,127 @@ p {
   <div class="words" contenteditable>
   </div>  
   <script type="module">
-window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-const recognition = new SpeechRecognition();
-recognition.interimResults = true;
-recognition.lang = 'zh-CN';
+    const recognition = new SpeechRecognition();
+    recognition.interimResults = true;
+    recognition.lang = 'zh-CN';
 
-let p = document.createElement('p');
-const words = document.querySelector('.words');
-words.appendChild(p);
+    let p = document.createElement('p');
+    const words = document.querySelector('.words');
+    words.appendChild(p);
 
-import {Playbulb} from './jcode-bluetooth.js';
-const device = new Playbulb();
-const button = document.querySelector('button');
-window.addEventListener('deviceconnected', ({detail}) => {
-  console.log(detail);
-});
-window.addEventListener('devicedisconnected', ({detail}) => {
-  console.log(detail);
-});
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-button.addEventListener('click', async () => {
-  await device.connect();
-  // let hue = 0;
-  // while (true) {
-  //   await device.setColor(`hsl(${hue}, 100%, 50%)`);
-  //   hue = (hue + 1) % 360;
-  //   await sleep(100);
-  // }
-});
-
-recognition.addEventListener('result', e => {
-  const transcript = Array.from(e.results)
-    .map(result => result[0])
-    .map(result => result.transcript)
-    .join('');
-
-    const poopScript = transcript.replace(/poop|poo|shit|dump/gi, '💩');
-    p.textContent = poopScript;
-
-    if (e.results[0].isFinal) {
-      if(p.textContent === '红灯' && device.server) {
-        device.setColor('red');
-      }
-      else if(p.textContent === '绿灯' && device.server) {
-        device.setColor('green');
-      }
-      else if(p.textContent === '黄灯' && device.server) {
-        device.setColor('yellow');
-      }
-      else if(p.textContent === '白灯' && device.server) {
-        device.setColor('white');
-      }
-      else if(p.textContent === '关灯' && device.server) {
-        device.setColor('black');
-      }
-      p = document.createElement('p');
-      words.appendChild(p);
+    import {Playbulb} from './jcode-bluetooth.js';
+    const device = new Playbulb();
+    const button = document.querySelector('button');
+    window.addEventListener('deviceconnected', ({detail}) => {
+      console.log(detail);
+    });
+    window.addEventListener('devicedisconnected', ({detail}) => {
+      console.log(detail);
+    });
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
     }
-});
+    button.addEventListener('click', async () => {
+      await device.connect();
+      device.setColor('#333333FF');
+      window.device = device;
+    });
 
-recognition.addEventListener('end', recognition.start);
+    recognition.addEventListener('result', async (e) => {
+      const transcript = Array.from(e.results)
+        .map(result => result[0])
+        .map(result => result.transcript)
+        .join('');
 
-recognition.start();
+        const poopScript = transcript.replace(/poop|poo|shit|dump/gi, '💩');
+        p.textContent = poopScript;
 
-console.log('done');
+        if (e.results[0].isFinal) {
+          // if(p.textContent === '红灯' && device.server) {
+          //   device.setColor('red');
+          // }
+          // else if(p.textContent === '绿灯' && device.server) {
+          //   device.setColor('green');
+          // }
+          // else if(p.textContent === '黄灯' && device.server) {
+          //   device.setColor('yellow');
+          // }
+          // else if(p.textContent === '白灯' && device.server) {
+          //   device.setColor('white');
+          // }
+          // else if(p.textContent === '关灯' && device.server) {
+          //   device.setColor('black');
+          // }
+          const word = p.textContent;
+          if(word.includes('亮一点')) {
+            const br = await device.getBrightness();
+            await device.setBrightness(Math.min(255, br + 60));
+          } else if(word.includes('太亮了')) {
+            const br = await device.getBrightness();
+            await device.setBrightness(Math.round(br / 2));
+          } else if(word.includes('红一些')) {
+            const color = await device.getColor();
+            color.r = Math.min(255, color.r + 80);
+            await device.setColor(color);
+          } else if(word.includes('绿一些')) {
+            const color = await device.getColor();
+            color.g = Math.min(255, color.g + 80);
+            await device.setColor(color);
+          } else if(word.includes('蓝一些')) {
+            const color = await device.getColor();
+            color.b = Math.min(255, color.b + 80);
+            await device.setColor(color);
+          } else if(word.includes('太红了')) {
+            const color = await device.getColor();
+            color.r = Math.round(color.r / 2);
+            await device.setColor(color);
+          } else if(word.includes('太绿了')) {
+            const color = await device.getColor();
+            color.g = Math.round(color.g / 2);
+            await device.setColor(color);
+          } else if(word.includes('太蓝了')) {
+            const color = await device.getColor();
+            color.b = Math.round(color.b / 2);
+            await device.setColor(color);
+          } else if(word.includes('不要红')) {
+            const color = await device.getColor();
+            color.r = 0;
+            await device.setColor(color);
+          } else if(word.includes('不要绿')) {
+            const color = await device.getColor();
+            color.g = 0;
+            await device.setColor(color);
+          } else if(word.includes('不要蓝')) {
+            const color = await device.getColor();
+            color.b = 0;
+            await device.setColor(color);
+          } else if(word.includes('闪一闪')) {
+            const color = await device.getColor();
+            await device.setFlashingColor(color);
+          } else if(word.includes('不要闪')) {
+            const color = await device.getColor();
+            await device.setColor(color);
+          } else if(word.includes('彩虹桥')) {
+            const color = await device.getColor();
+            await device.setRainbowFadingColor(color, 0x06);
+          } else if(word.includes('关灯')) {
+            await device.setColor('#000000FF');
+          } else if(word.includes('开灯')) {
+            await device.setColor('#333333FF');
+          }
+
+          p = document.createElement('p');
+          words.appendChild(p);
+        }
+    });
+
+    recognition.addEventListener('end', recognition.start);
+
+    recognition.start();
+
+    console.log('ready');
   </script>
 </body>
 </html>
