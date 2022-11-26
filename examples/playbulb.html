@@ -23,8 +23,12 @@
     }
     button.addEventListener('click', async () => {
       await device.connect();
-      device.setColor('green');
-      device.setFlashingColor('blue');
+      // device.setColor('green');
+      // device.setFlashingColor('blue');
+      // device.setCandlingColor('red');
+      // device.setPulsingColor('yellow');
+      // device.setRainbowJumpingColor('red');
+      device.setRainbowFadingColor('red');
     });
     window.device = device;
   </script>

@@ -1,4 +1,5 @@
 // https://codelabs.developers.google.com/codelabs/candle-bluetooth?hl=zh-cn&authuser=6#5
+// https://github.com/Phhere/Playbulb
 
 import {TinyColor} from '@ctrl/tinycolor';
 import {Device} from '../device';
@@ -7,6 +8,16 @@ const COLOR_UUID = 0xfffc;
 const COLOR_EFFECT_UUID = 0xfffb;
 
 class Playbulb extends Device {
+  static FLASH = 0x00;
+
+  static PULSE = 0x01;
+
+  static RAINBOW_JUMP = 0x02;
+
+  static RAINBOW_JFADE = 0x03;
+
+  static CANDLE = 0x04;
+
   constructor({filters = [{namePrefix: 'PLAYBULB'}],
     optionalServices = [0xff00, 0xff02, 0xff0f]} = {}) {
     super({filters, optionalServices});
@@ -44,7 +55,7 @@ class Playbulb extends Device {
     }
   }
 
-  async setFlashingColor(value) {
+  async setColorEffect(value, effect = 0x00, speed = 0x1f) {
     try {
       const color = new TinyColor(value);
       const {r, g, b} = color.toRgb();
@@ -52,12 +63,32 @@ class Playbulb extends Device {
       const w = (1 - a) * 0xff;
       await this._effectCharacteristic.writeValue(new Uint8Array([
         w, r, g, b,
-        0x00, 0x00, 0x1F, 0x00,
+        effect, 0x00, speed, 0x00,
       ]));
     } catch (ex) {
       await this.connect();
-      this.setFlashingColor(value);
+      this.setCandleEffectColor(value);
     }
+  }
+
+  async setFlashingColor(value, speed = 0x1f) {
+    await this.setColorEffect(value, Playbulb.FLASH, speed);
+  }
+
+  async setCandlingColor(value, speed = 0x10) {
+    await this.setColorEffect(value, Playbulb.CANDLE, speed);
+  }
+
+  async setPulsingColor(value, speed = 0x03) {
+    await this.setColorEffect(value, Playbulb.PULSE, speed);
+  }
+
+  async setRainbowJumpingColor(value, speed = 0xff) {
+    await this.setColorEffect(value, Playbulb.RAINBOW_JUMP, speed);
+  }
+
+  async setRainbowFadingColor(value, speed = 0x1f) {
+    await this.setColorEffect(value, Playbulb.RAINBOW_JFADE, speed);
   }
 }
 
