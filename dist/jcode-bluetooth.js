@@ -1067,8 +1067,8 @@ var TimeboxEvoMessage = class {
   }
 };
 
-// src/divoom/canvas.js
-var Canvas = class {
+// src/divoom/matrix.js
+var Matrix = class {
   constructor(width = 32, height = 32) {
     this._width = width;
     this._height = height;
@@ -1092,7 +1092,7 @@ var Canvas = class {
     return this._height;
   }
   clone() {
-    const cloned = new Canvas(this._width, this._height);
+    const cloned = new Matrix(this._width, this._height);
     cloned.pixels = [...this.pixels];
     return cloned;
   }
@@ -1136,7 +1136,7 @@ var Canvas = class {
 var Pixoo = class {
   constructor(server = "http://localhost:9527", width = 16, height = 16) {
     this._server = server;
-    this._matrix = new Canvas(width, height);
+    this._matrix = new Matrix(width, height);
     this._canvas = null;
     this._updatePromise = null;
     this._updateDelay = 0;
@@ -1206,8 +1206,7 @@ var Pixoo = class {
   get matrix() {
     return this._matrix;
   }
-  transferCanvasData() {
-    const { canvas, matrix } = this;
+  transferCanvasData(canvas = this.canvas, matrix = this.matrix) {
     if (canvas.width !== matrix.width) {
       matrix.width = canvas.width;
       matrix.height = canvas.height;
@@ -1249,6 +1248,10 @@ var Pixoo = class {
     await this.send(message);
     const e = new CustomEvent("pixooupdate", { detail: { device: this } });
     window.dispatchEvent(e);
+  }
+  async transferAnimation(frames, speed = 100) {
+    const messages = this.getAnimationData(frames, speed);
+    await this.send(messages.join(""));
   }
   setEmulate(value = true) {
     if (value)
@@ -1305,12 +1308,12 @@ var Pixoo = class {
   getPixel(x, y) {
     return this.getColor(x, y);
   }
-  generateImageData(canvas, delay = 0) {
+  generateImageData(matrix, delay = 0) {
     const frameTimeString = int2hexlittle(delay);
     let paletteTypeString = "00";
-    const { colorBufferString, screenBufferString, colorCount } = this.encodeCanvasToFrame(canvas);
+    const { colorBufferString, screenBufferString, colorCount } = this.encodeMatrixToFrame(matrix);
     let paletteCountString = colorCount;
-    if (canvas.width > 16) {
+    if (matrix.width > 16) {
       paletteCountString = int2hexlittle(paletteCountString);
       paletteTypeString = "03";
     } else {
@@ -1326,9 +1329,9 @@ var Pixoo = class {
     }
     const frameData = [];
     for (let i = 0; i < frames.length; i++) {
-      const canvas = frames[i];
+      const matrix = frames[i];
       const delay = speed * i;
-      frameData.push(this.generateImageData(canvas, delay));
+      frameData.push(this.generateImageData(matrix, delay));
     }
     const allData = frameData.join("");
     const totalSize = allData.length / 2;
@@ -1337,25 +1340,28 @@ var Pixoo = class {
     const chunks = [];
     for (let i = 0; i < nchunks; i++) {
       const body = allData.substr(i * chunkSize, chunkSize);
-      const chunkHeader = int2hexlittle(totalSize) + number2HexString(i);
+      let chunkHeader = int2hexlittle(totalSize) + number2HexString(i);
+      if (this.type === "max") {
+        chunkHeader = int2hexlittle(totalSize) + "0000" + int2hexlittle(i);
+      }
       const payload = new TimeboxEvoMessage(`49${chunkHeader}${body}`);
       chunks.push(payload.message);
     }
     return chunks;
   }
-  getStaticImage(canvas) {
-    const imageData = this.generateImageData(canvas);
+  getStaticImage(matrix) {
+    const imageData = this.generateImageData(matrix);
     const header = "44000a0a04";
     const payload = new TimeboxEvoMessage(
       header + imageData
     );
     return payload.message;
   }
-  encodeCanvasToFrame(canvas) {
+  encodeMatrixToFrame(matrix) {
     const palette = [];
     const paletteIndexMap = /* @__PURE__ */ new Map();
     const screen = [];
-    canvas.traverseByRowAndColumn((_x, _y, color) => {
+    matrix.traverseByRowAndColumn((_x, _y, color) => {
       const stringifiedColor = JSON.stringify(color);
       if (!paletteIndexMap.has(stringifiedColor)) {
         palette.push(color);
