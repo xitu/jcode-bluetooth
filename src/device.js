@@ -3,6 +3,11 @@ class Device {
     this.filters = filters;
     this.optionalServices = optionalServices;
     this._server = null;
+    this._mtu = 20;
+  }
+
+  get MTU() {
+    return this._mtu;
   }
 
   async connect(rebound = true) {

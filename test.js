@@ -1,7 +1,32 @@
-import {TimeboxEvoMessage} from './src/divoom/message.js';
+import {EpaperCore} from './src/epaper/epaper-core.js';
 
-const msg = new TimeboxEvoMessage('4502');
-console.log(msg.message);
+const epaper = new EpaperCore();
+// epaper.frameBuffer.transformByRowAndColumn((x, y) => {
+//   return [0xFF, 0, 0];
+// });
+epaper.frameBuffer.pixels[250 * 100 + 2] = [0xFF, 0, 0];
+
+const pixels = epaper.getARGBData();
+console.log(pixels);
+const buffer = epaper.encodeFrameBuffer();
+console.log(buffer);
+
+for(let i = 0; i < buffer.length; i++) {
+  if(buffer[i] !== 0) {
+    console.log(i, buffer[i]);
+  }
+}
+
+console.log(epaper.generateUploadPlayloads());
+
+const decoded = epaper.decodeFrameBuffer(buffer);
+// console.log(decoded);
+
+for(let i = 0; i < pixels.length; i++) {
+  if(pixels[i] !== decoded[i]) {
+    throw new Error(`pixel mismatch at index ${i}`);
+  }
+}
 
 // Pixoo: 11:75:58:A1:21:3E
 // Pixoo-max: 11:75:58:A5:B1:0A

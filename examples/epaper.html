@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <button>连接设备</button>
+  <script type="module">
+    import {Epaper} from './jcode-bluetooth.js';
+    const device = new Epaper();
+    const button = document.querySelector('button');
+    window.addEventListener('deviceconnected', ({detail}) => {
+      console.log(detail);
+    });
+    window.addEventListener('devicedisconnected', ({detail}) => {
+      console.log(detail);
+    });
+    window.addEventListener('epaperprogress', ({detail}) => {
+      console.log(detail);
+    });
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    button.addEventListener('click', async () => {
+      await device.connect();
+      console.log(device);
+      device._core.frameBuffer.transformByRowAndColumn(() => [255, 0, 0]);
+      // await device.upload();
+    });
+    window.device = device;
+  </script>
+</body>
+</html>
