@@ -88,9 +88,10 @@ export class EpaperCore {
     data[0] = action_write;
     int2Bytes(data, 1, offset, 4);
     data[5] = trunkSize & 0xff;
-    for(let i = 0; i < trunkSize; i++) {
-      data[i + header_size] = frameBuffer[offset + i];
-    }
+    data.set(frameBuffer.subarray(offset, offset + trunkSize), header_size);
+    // for(let i = 0; i < trunkSize; i++) {
+    //   data[i + header_size] = frameBuffer[offset + i];
+    // }
 
     return data;
   }

@@ -29,6 +29,7 @@
       console.log(device);
       device._core.frameBuffer.transformByRowAndColumn(() => [255, 0, 0]);
       // await device.upload();
+      // await device.flush();
     });
     window.device = device;
   </script>

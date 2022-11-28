@@ -1,10 +1,10 @@
 import {EpaperCore} from './src/epaper/epaper-core.js';
 
 const epaper = new EpaperCore();
-// epaper.frameBuffer.transformByRowAndColumn((x, y) => {
-//   return [0xFF, 0, 0];
-// });
-epaper.frameBuffer.pixels[250 * 100 + 2] = [0xFF, 0, 0];
+epaper.frameBuffer.transformByRowAndColumn((x, y) => {
+  return [0xFF, 0, 0];
+});
+// epaper.frameBuffer.pixels[250 * 100 + 2] = [0xFF, 0, 0];
 
 const pixels = epaper.getARGBData();
 console.log(pixels);
@@ -17,7 +17,10 @@ for(let i = 0; i < buffer.length; i++) {
   }
 }
 
-console.log(epaper.generateUploadPlayloads());
+const payloads = epaper.generateUploadPlayloads();
+console.log(payloads);
+
+console.log(payloads.slice(-1));
 
 const decoded = epaper.decodeFrameBuffer(buffer);
 // console.log(decoded);

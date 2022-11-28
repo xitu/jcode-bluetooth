@@ -1,6 +1,6 @@
 import {Device} from '../device';
 import {EpaperCore} from './epaper-core.js';
-import {int2Bytes} from './utils.js';
+import {int2Bytes, Defer} from './utils.js';
 
 const READ_UUID = 0xd003;
 const WRITE_UUID = 0xd002;
@@ -28,15 +28,19 @@ export class Epaper extends Device {
   async upload() {
     const payloads = this._core.generateUploadPlayloads();
     const mtu = this.MTU;
+    const header_size = 6;
+    let offset = 0;
     // eslint-disable-next-line no-restricted-syntax
     for(let i = 0; i < payloads.length; i++) {
       const payload = payloads[i];
       // eslint-disable-next-line no-await-in-loop
       await this._writeCharacteristic.writeValue(payload);
+      offset += mtu - header_size;
       if(typeof CustomEvent === 'function') {
         const event = new CustomEvent('epaperprogress', {
           detail: {
-            percent: Math.min(100, mtu * (i + 1) * 100 / EpaperCore.RAM_SIZE),
+            type: 'upload',
+            percent: Math.min(100, offset * 100 / EpaperCore.RAM_SIZE),
             payload,
             size: EpaperCore.RAM_SIZE,
           },
@@ -54,18 +58,35 @@ export class Epaper extends Device {
     request[0] = action_read;
     let offset = 0;
     const frameBuffer = new Uint8Array(EpaperCore.RAM_SIZE);
+    let notificationDefer = null;
+
+    const notificationHandler = (event) => {
+      const data = new Uint8Array(event.target.value.buffer);
+      // console.log(data);
+      if(data[0] === 0x2 && data[1] === 0x0 && data.length === mtu - header_size + 2) { // 读取数据
+        // 成功读取数据
+        notificationDefer.resolve({buffer: data.slice(2)});
+      } else if(data[0] === 0x2 && data[1] === 0x1) {
+        notificationDefer.reject(new Error('Read data failed.'));
+      }
+    };
+
+    await this._readCharacteristic.startNotifications();
+    this._readCharacteristic.addEventListener('characteristicvaluechanged', notificationHandler);
 
     // eslint-disable-next-line no-restricted-syntax
     while(offset < EpaperCore.RAM_SIZE) {
       int2Bytes(request, 1, offset, 4);
       request[5] = Math.min((mtu - header_size), (EpaperCore.RAM_SIZE - offset)) & 0xff;
 
+      notificationDefer = new Defer();
+
       // eslint-disable-next-line no-await-in-loop
       await this._writeCharacteristic.writeValueWithResponse(request);
 
       // eslint-disable-next-line no-await-in-loop
-      const response = await this._readCharacteristic.readValue();
-      const trunk = response.buffer.slice(1);
+      const response = await notificationDefer.promise;
+      const trunk = response.buffer;
       frameBuffer.set(trunk, offset);
 
       offset += mtu - header_size;
@@ -73,14 +94,20 @@ export class Epaper extends Device {
       if(typeof CustomEvent === 'function') {
         const event = new CustomEvent('epaperprogress', {
           detail: {
+            type: 'download',
             percent: Math.min(100, offset * 100 / EpaperCore.RAM_SIZE),
             payload: request,
+            trunk,
             size: EpaperCore.RAM_SIZE,
           },
         });
         window.dispatchEvent(event);
       }
     }
+    await this._readCharacteristic.stopNotifications();
+    this._readCharacteristic.removeEventListener('characteristicvaluechanged',
+      notificationHandler);
+
     return frameBuffer;
   }
 }

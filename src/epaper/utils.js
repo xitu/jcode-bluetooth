@@ -3,3 +3,10 @@ export function int2Bytes(buffer, offset, value, limit) {
     buffer[offset + i] = (value >>> (i * 8)) & 0xFF;
   }
 }
+
+export function Defer() {
+  this.promise = new Promise((resolve, reject) => {
+    this.resolve = resolve;
+    this.reject = reject;
+  });
+}
