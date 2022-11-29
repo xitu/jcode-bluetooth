@@ -17,7 +17,8 @@
   "devDependencies": {
     "esbuild": "^0.15.14",
     "eslint": "^8.28.0",
-    "eslint-config-sprite": "^1.0.6"
+    "eslint-config-sprite": "^1.0.6",
+    "node-canvas-webgl": "^0.2.7"
   },
   "dependencies": {
     "@ctrl/tinycolor": "^3.4.1",

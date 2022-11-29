@@ -5,7 +5,7 @@ import {TimeboxEvoMessage} from './message.js';
 import {Matrix} from './matrix.js';
 
 export class Pixoo {
-  constructor(server = 'http://localhost:9527', width = 16, height = 16) {
+  constructor({server = 'http://localhost:9527', width = 16, height = 16} = {}) {
     this._server = server;
     this._matrix = new Matrix(width, height);
     this._canvas = null;
@@ -107,7 +107,7 @@ export class Pixoo {
   forceUpdate() {
     if(!this._updatePromise) {
       this._updatePromise = new Promise((resolve) => {
-        if(this._updateDelay <= 0) {
+        if(this._updateDelay <= 0 && typeof requestAnimationFrame === 'function') {
           requestAnimationFrame(() => {
             this._updatePromise = null;
             this.update();
@@ -122,6 +122,7 @@ export class Pixoo {
         }
       });
     }
+    return this._updatePromise;
   }
 
   async update() {
@@ -134,9 +135,10 @@ export class Pixoo {
     // const message = animData.join('');
     // console.log(animData.length, message.length);
     // await this.send(message);
-
-    const e = new CustomEvent('pixooupdate', {detail: {device: this}});
-    window.dispatchEvent(e);
+    if(typeof CustomEvent === 'function') {
+      const e = new CustomEvent('pixooupdate', {detail: {device: this}});
+      window.dispatchEvent(e);
+    }
   }
 
   async transferAnimation(frames = this._animationFrames) {

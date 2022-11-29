@@ -1,6 +1,7 @@
 import {Device} from '../device';
 import {EpaperCore} from './epaper-core.js';
-import {int2Bytes, Defer} from './utils.js';
+import {int2Bytes} from './utils.js';
+import {Defer} from '../common/defer';
 
 const READ_UUID = 0xd003;
 const WRITE_UUID = 0xd002;

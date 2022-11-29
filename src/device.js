@@ -24,15 +24,19 @@ class Device {
       const device = await navigator.bluetooth.requestDevice(options);
       device.addEventListener('gattserverdisconnected', () => {
         this._server = null;
-        const e = new CustomEvent('devicedisconnected', {detail: {device: this}});
-        window.dispatchEvent(e);
+        if(typeof CustomEvent === 'function') {
+          const e = new CustomEvent('devicedisconnected', {detail: {device: this}});
+          window.dispatchEvent(e);
+        }
       });
       this._device = device;
     }
 
     this._server = await this._device.gatt.connect();
-    const e = new CustomEvent('deviceconnected', {detail: {device: this}});
-    window.dispatchEvent(e);
+    if(typeof CustomEvent === 'function') {
+      const e = new CustomEvent('deviceconnected', {detail: {device: this}});
+      window.dispatchEvent(e);
+    }
     return this;
   }
 
