@@ -4,7 +4,7 @@ import {int2Bytes} from './utils.js';
 export class EpaperCore {
   static RAM_SIZE = 8000;
 
-  constructor(width = 250, height = 122, mtu = 20) {
+  constructor({width = 250, height = 122, mtu = 127} = {}) {
     this._width = width;
     this._height = height;
     this._mtu = mtu;

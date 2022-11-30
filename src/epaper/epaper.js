@@ -7,10 +7,12 @@ const READ_UUID = 0xd003;
 const WRITE_UUID = 0xd002;
 
 export class Epaper extends Device {
-  constructor({filters = [{namePrefix: 'Epaper'}],
+  static MTU = 20;
+
+  constructor({filters = [{namePrefix: 'Epaper'}, {namePrefix: 'EPD'}],
     optionalServices = [0xd0ff]} = {}) {
     super({filters, optionalServices});
-    this._core = new EpaperCore();
+    this._core = new EpaperCore({mtu: Epaper.MTU});
   }
 
   async connect(rebound = true) {
@@ -28,7 +30,7 @@ export class Epaper extends Device {
 
   async upload() {
     const payloads = this._core.generateUploadPlayloads();
-    const mtu = this.MTU;
+    const mtu = Epaper.MTU;
     const header_size = 6;
     let offset = 0;
     // eslint-disable-next-line no-restricted-syntax
@@ -52,7 +54,7 @@ export class Epaper extends Device {
   }
 
   async download() {
-    const mtu = this.MTU;
+    const mtu = Epaper.MTU;
     const header_size = 6;
     const action_read = 0x02;
     const request = new Uint8Array(header_size);
