@@ -141,9 +141,13 @@ export class Pixoo {
     }
   }
 
-  async transferAnimation(frames = this._animationFrames) {
+  async playAnimation(frames = this._animationFrames) {
     const messages = this.getAnimationData(frames);
     await this.send(messages.join(''));
+  }
+
+  clearAnimationFrames() {
+    this._animationFrames.length = 0;
   }
 
   appendAnimationFrame(image, delay = 0) {

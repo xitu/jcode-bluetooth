@@ -1,7 +1,3 @@
-export function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 export function unhexlify(str) {
   let result = '';
   if(str.length % 2 !== 0) {

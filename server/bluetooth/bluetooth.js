@@ -1,6 +1,7 @@
 import BluetoothSerialPort from 'node-bluetooth-serial-port';
-import {sleep, stringToBuffer} from '../utils.js';
+import {stringToBuffer} from '../utils.js';
 import {Defer} from '../../src/common/defer.js';
+import {sleep} from '../../src/common/sleep.js';
 
 export class Bluetooth {
   constructor({deviceMAC, connectionTimeout, maxConnectAttempts, connectionAttemptDelay}) {
