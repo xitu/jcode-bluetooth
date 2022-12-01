@@ -1,14 +1,15 @@
 import {PixelData} from '../common/pixel-data.js';
 import {int2Bytes} from './utils.js';
-import {CanvasDither} from './canvas-dither.js';
+import {Dither} from './dither/index.js';
 
 export class EpaperCore {
   static RAM_SIZE = 8000;
+
   static DITHER_AKTINSON = 'atkinson';
-  static DITHER_FLOYDSTEINBERG = 'floydsteinberg';
-  static DITHER_GRAYSCALE = 'grayscale';
-  static DITHER_BAYER = 'bayer';
-  static DITHER_THRESHOLD = 'threshold';
+
+  static DITHER_ORDERED = 'ordered';
+
+  static DITHER_ERR_DIFFUSION = 'errDiffusion';
 
   constructor({width = 250, height = 122, mtu = 127} = {}) {
     this._width = width;
@@ -17,7 +18,7 @@ export class EpaperCore {
     this._pixelData = new PixelData(width, height);
     this._paintCanvas = new OffscreenCanvas(width, height);
     this._ctx = this._paintCanvas.getContext('2d', {willReadFrequently: true});
-    this._dither = new CanvasDither();
+    this._dither = new Dither();
   }
 
   get width() {
@@ -32,13 +33,29 @@ export class EpaperCore {
     return this._pixelData;
   }
 
-  fromImage({image, x = 0, y = 0, width = this.width, height = this.height, dither = 'atkinson', threshold = 32} = {}) {
+  fromImage({image, x, y, width, height, dither, step, paletteType} = {}) {
     this._ctx.clearRect(0, 0, this.width, this.height);
     this._ctx.fillStyle = 'white';
     this._ctx.fillRect(0, 0, this.width, this.height);
     this._ctx.drawImage(image, x, y, width, height, 0, 0, this.width, this.height);
     const imageData = this._ctx.getImageData(0, 0, this.width, this.height);
-    this._dither[dither](imageData, threshold); // 二值化
+
+    let palette;
+    if(paletteType === 0) {
+      palette = [[0, 0, 0], [255, 255, 255]];
+    } else if(paletteType === 1) {
+      palette = [[255, 0, 0], [255, 255, 255]];
+    } else if(paletteType === 2) {
+      palette = [[0, 0, 0], [255, 255, 255], [255, 0, 0]];
+    } else {
+      throw new Error('Invalid palette type.');
+    }
+    this._dither.ditherImageData(imageData, {
+      algorithm: Dither[dither],
+      palette,
+      step,
+    });
+
     this._pixelData.fromImageData(imageData);
     this._ctx.putImageData(imageData, 0, 0);
 

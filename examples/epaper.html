@@ -52,7 +52,7 @@
       await device.connect();
       console.log(device);
       device._core.frameBuffer.transformByRowAndColumn(() => [0, 0, 0]);
-      device.fromImage(canvas);
+      device.fromImage(canvas, {paletteType: 2});
       preview.getContext('2d').drawImage(device.canvas, 0, 0);
       uploader.disabled = false;
     });

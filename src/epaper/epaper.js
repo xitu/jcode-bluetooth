@@ -65,8 +65,8 @@ export class Epaper extends Device {
     }
   }
 
-  fromImage(image, {x = 0, y = 0, width = this.width, height = this.height, dither = 'atkinson', threshold = 32} = {}) {
-    return this._core.fromImage({image, x, y, width, height, dither, threshold});
+  fromImage(image, {x = 0, y = 0, width = this.width, height = this.height, dither = 'atkinson', step = 1, paletteType = 0} = {}) {
+    return this._core.fromImage({image, x, y, width, height, dither, step, paletteType});
   }
 
   async download() {
