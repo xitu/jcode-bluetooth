@@ -7,11 +7,16 @@
   <title>Document</title>
 </head>
 <body>
-  <button>连接设备</button>
+  <button id="connector">连接设备</button>
+  <button id="uploader" disabled="disabled">上传图片</button>
+  <span id="uploadStatus"></span>
+  <div>
+    <canvas width="250" height="122"></canvas>
+    <canvas id="preview" width="250" height="122"></canvas>
+  </div>
   <script type="module">
-    import {Epaper} from './jcode-bluetooth.js';
+    import {Epaper, loadImage} from './jcode-bluetooth.js';
     const device = new Epaper();
-    const button = document.querySelector('button');
     window.addEventListener('deviceconnected', ({detail}) => {
       console.log(detail);
     });
@@ -19,17 +24,45 @@
       console.log(detail);
     });
     window.addEventListener('epaperprogress', ({detail}) => {
-      console.log(detail);
+      // console.log(detail);
+      uploadStatus.textContent = `上传中...${Math.round(detail.percent)}%`;
     });
     function sleep(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
     }
-    button.addEventListener('click', async () => {
+
+    const canvas = document.querySelector('canvas');
+    const ctx = canvas.getContext('2d');
+    // const text = '码上掘金';
+    // ctx.font = '2rem Arial';
+    // ctx.fillColor = 'black';
+    // ctx.fillText(text, 110, 75);
+
+    // const img = await loadImage('https://p5.ssl.qhimg.com/t0187235e0667c1e40b.png');
+    // ctx.drawImage(img, 0, 0);
+
+    const img = await loadImage('https://p2.ssl.qhimg.com/t01b3cfb1c71520fe40.png');
+    ctx.translate(125, 61);
+    ctx.rotate(-90 * Math.PI / 180);
+    ctx.translate(-61, -145);
+    ctx.scale(1, 1.2);
+    ctx.drawImage(img, 0, 0);
+
+    connector.addEventListener('click', async () => {
       await device.connect();
       console.log(device);
       device._core.frameBuffer.transformByRowAndColumn(() => [0, 0, 0]);
-      // await device.upload();
-      // await device.flush();
+      device.fromImage(canvas);
+      preview.getContext('2d').drawImage(device.canvas, 0, 0);
+      uploader.disabled = false;
+    });
+
+    uploader.addEventListener('click', async() => {
+      uploadStatus.textContent = '开始上传';
+      await device.upload();
+      uploadStatus.textContent = '刷新中';
+      await device.flush();
+      uploadStatus.textContent = '更新完毕';
     });
     window.device = device;
   </script>

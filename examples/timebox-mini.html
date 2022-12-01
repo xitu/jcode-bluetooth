@@ -26,16 +26,12 @@
       // await device.enterDrawingMode();
       const ofc = new OffscreenCanvas(11, 11);
       const ctx = ofc.getContext('2d');
-      ctx.fillStyle = 'red';
-      ctx.fillRect(0, 0, 4, 4);
-      device.appendAnimationFrame(ofc);
-      ctx.fillStyle = 'green';
-      ctx.fillRect(0, 0, 4, 4);
-      device.appendAnimationFrame(ofc);
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, 4, 4);
-      device.appendAnimationFrame(ofc);
-      await device.playAnimation();
+      ['red', 'green', 'white'].forEach((color, i) => {
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, 4, 4);
+        device.appendAnimationFrame(ofc, 15);
+      });
+      device.playAnimation();
     });
     window.device = device;
   </script>

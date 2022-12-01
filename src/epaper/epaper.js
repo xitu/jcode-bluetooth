@@ -7,12 +7,24 @@ const READ_UUID = 0xd003;
 const WRITE_UUID = 0xd002;
 
 export class Epaper extends Device {
-  static MTU = 20;
+  static MTU = 127;
 
   constructor({filters = [{namePrefix: 'Epaper'}, {namePrefix: 'EPD'}],
     optionalServices = [0xd0ff]} = {}) {
     super({filters, optionalServices});
     this._core = new EpaperCore({mtu: Epaper.MTU});
+  }
+
+  get width() {
+    return this._core.width;
+  }
+
+  get height() {
+    return this._core.height;
+  }
+
+  get canvas() {
+    return this._core._paintCanvas;
   }
 
   async connect(rebound = true) {
@@ -51,6 +63,10 @@ export class Epaper extends Device {
         window.dispatchEvent(event);
       }
     }
+  }
+
+  fromImage(image, {x = 0, y = 0, width = this.width, height = this.height, dither = 'atkinson', threshold = 32} = {}) {
+    return this._core.fromImage({image, x, y, width, height, dither, threshold});
   }
 
   async download() {

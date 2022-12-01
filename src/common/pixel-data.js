@@ -33,6 +33,26 @@ export class PixelData {
     return cloned;
   }
 
+  fromImageData(imageData) {
+    const data = imageData.data;
+    this.transformByRowAndColumn((x, y, pixel, index) => {
+      const i = index * 4;
+      return [data[i], data[i + 1], data[i + 2]];
+    });
+    return this;
+  }
+
+  fromCanvas(canvas, scale = true) {
+    if(scale && canvas.width !== this.width) {
+      this.width = canvas.width;
+      this.height = canvas.height;
+    }
+    const {width, height} = this;
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.getImageData(0, 0, width, height);
+    return this.fromImageData(imageData);
+  }
+
   traverseByRowAndColumn(fn) {
     for(let y = 0; y < this._height; y++) {
       for(let x = 0; x < this._width; x++) {

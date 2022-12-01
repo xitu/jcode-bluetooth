@@ -86,18 +86,7 @@ export class Pixoo {
   }
 
   transferCanvasData(canvas = this.canvas, matrix = this.matrix) {
-    if(canvas.width !== matrix.width) {
-      matrix.width = canvas.width;
-      matrix.height = canvas.height;
-    }
-    const {width, height} = canvas;
-    const ctx = canvas.getContext('2d');
-    const {data} = ctx.getImageData(0, 0, width, height);
-    matrix.transformByRowAndColumn((x, y, pixel, index) => {
-      const i = index * 4;
-      return [data[i], data[i + 1], data[i + 2]];
-    });
-    return matrix;
+    return matrix.fromCanvas(canvas);
   }
 
   setUpdateLatency(latency = 0) {

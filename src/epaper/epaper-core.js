@@ -1,14 +1,23 @@
 import {PixelData} from '../common/pixel-data.js';
 import {int2Bytes} from './utils.js';
+import {CanvasDither} from './canvas-dither.js';
 
 export class EpaperCore {
   static RAM_SIZE = 8000;
+  static DITHER_AKTINSON = 'atkinson';
+  static DITHER_FLOYDSTEINBERG = 'floydsteinberg';
+  static DITHER_GRAYSCALE = 'grayscale';
+  static DITHER_BAYER = 'bayer';
+  static DITHER_THRESHOLD = 'threshold';
 
   constructor({width = 250, height = 122, mtu = 127} = {}) {
     this._width = width;
     this._height = height;
     this._mtu = mtu;
     this._pixelData = new PixelData(width, height);
+    this._paintCanvas = new OffscreenCanvas(width, height);
+    this._ctx = this._paintCanvas.getContext('2d', {willReadFrequently: true});
+    this._dither = new CanvasDither();
   }
 
   get width() {
@@ -23,7 +32,20 @@ export class EpaperCore {
     return this._pixelData;
   }
 
-  getARGBData() {
+  fromImage({image, x = 0, y = 0, width = this.width, height = this.height, dither = 'atkinson', threshold = 32} = {}) {
+    this._ctx.clearRect(0, 0, this.width, this.height);
+    this._ctx.fillStyle = 'white';
+    this._ctx.fillRect(0, 0, this.width, this.height);
+    this._ctx.drawImage(image, x, y, width, height, 0, 0, this.width, this.height);
+    const imageData = this._ctx.getImageData(0, 0, this.width, this.height);
+    this._dither[dither](imageData, threshold); // 二值化
+    this._pixelData.fromImageData(imageData);
+    this._ctx.putImageData(imageData, 0, 0);
+
+    return this._pixelData;
+  }
+
+  getARGBData() { // RGBA 转成32位整数
     const argbData = new Uint32Array(this._width * this._height);
     this._pixelData.traverseByRowAndColumn((x, y, color, i) => {
       const c = 0xFF000000 | color[0] << 16 | color[1] << 8 | color[2];
@@ -74,7 +96,7 @@ export class EpaperCore {
     return pixels;
   }
 
-  getUploadPlayload(frameBuffer, offset) {
+  _getUploadPlayload(frameBuffer, offset) {
     const mtu = this._mtu;
     const action_write = 0x00;
     const header_size = 6;
@@ -101,7 +123,7 @@ export class EpaperCore {
     const header_size = 6;
 
     for(let offset = 0; offset < EpaperCore.RAM_SIZE; offset += this._mtu - header_size) {
-      payloads.push(this.getUploadPlayload(frameBuffer, offset));
+      payloads.push(this._getUploadPlayload(frameBuffer, offset));
     }
     return payloads;
   }

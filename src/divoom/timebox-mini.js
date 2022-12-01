@@ -247,16 +247,16 @@ export class TimeboxMini extends Device {
     this._animationFrames.length = 0;
   }
 
-  appendAnimationFrame(image) {
+  appendAnimationFrame(image, duration = 1) {
     const buffer = this.encodeImage(image);
-    this._animationFrames.push(buffer);
+    this._animationFrames.push({buffer, duration});
   }
 
   async playAnimation() {
     for(let i = 0; i < this._animationFrames.length; i++) {
-      const buffer = this._animationFrames[i];
+      const {buffer, duration} = this._animationFrames[i];
       const payload = new Uint8Array(buffer.length + 8);
-      payload.set([0x49, 0x00, 0x0a, 0x0a, 0x04, i, i, ...buffer]);
+      payload.set([0x49, 0x00, 0x0a, 0x0a, 0x04, i, duration, ...buffer]);
       const msg = this.encodeCommand(payload);
       // eslint-disable-next-line no-await-in-loop
       await this.sendMessage(msg);
