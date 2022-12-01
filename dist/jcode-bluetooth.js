@@ -26,14 +26,18 @@ var Device = class {
       const device = await navigator.bluetooth.requestDevice(options);
       device.addEventListener("gattserverdisconnected", () => {
         this._server = null;
-        const e2 = new CustomEvent("devicedisconnected", { detail: { device: this } });
-        window.dispatchEvent(e2);
+        if (typeof CustomEvent === "function") {
+          const e = new CustomEvent("devicedisconnected", { detail: { device: this } });
+          window.dispatchEvent(e);
+        }
       });
       this._device = device;
     }
     this._server = await this._device.gatt.connect();
-    const e = new CustomEvent("deviceconnected", { detail: { device: this } });
-    window.dispatchEvent(e);
+    if (typeof CustomEvent === "function") {
+      const e = new CustomEvent("deviceconnected", { detail: { device: this } });
+      window.dispatchEvent(e);
+    }
     return this;
   }
   async disconnect() {
@@ -1023,6 +1027,521 @@ __publicField(Playbulb, "RAINBOW_JUMP", 2);
 __publicField(Playbulb, "RAINBOW_JFADE", 3);
 __publicField(Playbulb, "CANDLE", 4);
 
+// src/common/pixel-data.js
+var PixelData = class {
+  constructor(width, height) {
+    this._width = width;
+    this._height = height;
+    this.pixels = [];
+    this.transformByRowAndColumn(() => [0, 0, 0]);
+  }
+  set width(value) {
+    this._width = value;
+    this.pixels = [];
+    this.transformByRowAndColumn(() => [0, 0, 0]);
+  }
+  get width() {
+    return this._width;
+  }
+  set height(value) {
+    this._height = value;
+    this.pixels = [];
+    this.transformByRowAndColumn(() => [0, 0, 0]);
+  }
+  get height() {
+    return this._height;
+  }
+  clone() {
+    const cloned = new PixelData(this._width, this._height);
+    cloned.pixels = [...this.pixels];
+    return cloned;
+  }
+  fromImageData(imageData) {
+    const data = imageData.data;
+    this.transformByRowAndColumn((x, y, pixel, index) => {
+      const i = index * 4;
+      return [data[i], data[i + 1], data[i + 2]];
+    });
+    return this;
+  }
+  fromCanvas(canvas, scale = true) {
+    if (scale && canvas.width !== this.width) {
+      this.width = canvas.width;
+      this.height = canvas.height;
+    }
+    const { width, height } = this;
+    const ctx = canvas.getContext("2d");
+    const imageData = ctx.getImageData(0, 0, width, height);
+    return this.fromImageData(imageData);
+  }
+  traverseByRowAndColumn(fn) {
+    for (let y = 0; y < this._height; y++) {
+      for (let x = 0; x < this._width; x++) {
+        const index = y * this._width + x;
+        fn(x, y, this.pixels[index], index);
+      }
+    }
+  }
+  transformByRowAndColumn(fn) {
+    for (let y = 0; y < this._height; y++) {
+      for (let x = 0; x < this._width; x++) {
+        const index = y * this._width + x;
+        this.pixels[index] = fn(x, y, this.pixels[index], index);
+      }
+    }
+  }
+  assertBounds(x, y) {
+    if (x < 0 || x > this._width) {
+      throw new Error(`x coordinate out of bounds: ${x} > ${this._width}`);
+    }
+    if (y < 0 || y > this._height) {
+      throw new Error(`y coordinate out of bounds: ${y} > ${this._height}`);
+    }
+  }
+  set(x, y, color) {
+    this.assertBounds(x, y);
+    const oldValue = this.pixels[y * this._width + x];
+    this.pixels[y * this._width + x] = color;
+    return oldValue;
+  }
+  get(x, y) {
+    this.assertBounds(x, y);
+    return this.pixels[y * this._width + x];
+  }
+};
+
+// src/epaper/utils.js
+function int2Bytes(buffer, offset, value, limit) {
+  for (let i = 0; i < limit; i++) {
+    buffer[offset + i] = value >>> i * 8 & 255;
+  }
+}
+
+// src/epaper/dither/algorithms/utils.js
+function colorDistance(a, b) {
+  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+}
+function approximateColor(color, palette) {
+  const findIndex = function(fun, arg, list, min) {
+    if (list.length === 2) {
+      if (fun(arg, min) <= fun(arg, list[1])) {
+        return min;
+      }
+      return list[1];
+    }
+    const tl = list.slice(1);
+    if (fun(arg, min) > fun(arg, list[1])) {
+      min = list[1];
+    }
+    return findIndex(fun, arg, tl, min);
+  };
+  const foundColor = findIndex(colorDistance, color, palette, palette[0]);
+  return foundColor;
+}
+
+// src/epaper/dither/algorithms/atkinson.js
+function atkinson(uint8data, palette, step, h, w) {
+  const d = new Uint8ClampedArray(uint8data);
+  const out = new Uint8ClampedArray(uint8data);
+  const ratio = 1 / 8;
+  const $i = function(x, y) {
+    return 4 * x + 4 * y * w;
+  };
+  let r, g, b, q, i, color, approx, tr, tg, tb, dx, dy, di;
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      i = 4 * x + 4 * y * w;
+      r = i;
+      g = i + 1;
+      b = i + 2;
+      color = [d[r], d[g], d[b]];
+      approx = approximateColor(color, palette);
+      q = [];
+      q[r] = d[r] - approx[0];
+      q[g] = d[g] - approx[1];
+      q[b] = d[b] - approx[2];
+      d[$i(x + step, y) + 0] += ratio * q[r];
+      d[$i(x - step, y + step) + 0] += ratio * q[r];
+      d[$i(x, y + step) + 0] += ratio * q[r];
+      d[$i(x + step, y + step) + 0] += ratio * q[r];
+      d[$i(x + 2 * step, y) + 0] += ratio * q[r];
+      d[$i(x, y + 2 * step) + 0] += ratio * q[r];
+      d[$i(x + step, y) + 1] += ratio * q[g];
+      d[$i(x - step, y + step) + 1] += ratio * q[g];
+      d[$i(x, y + step) + 1] += ratio * q[g];
+      d[$i(x + step, y + step) + 1] += ratio * q[g];
+      d[$i(x + 2 * step, y) + 1] += ratio * q[g];
+      d[$i(x, y + 2 * step) + 1] += ratio * q[g];
+      d[$i(x + step, y) + 2] += ratio * q[b];
+      d[$i(x - step, y + step) + 2] += ratio * q[b];
+      d[$i(x, y + step) + 2] += ratio * q[b];
+      d[$i(x + step, y + step) + 2] += ratio * q[b];
+      d[$i(x + 2 * step, y) + 2] += ratio * q[b];
+      d[$i(x, y + 2 * step) + 2] += ratio * q[b];
+      tr = approx[0];
+      tg = approx[1];
+      tb = approx[2];
+      for (dx = 0; dx < step; dx++) {
+        for (dy = 0; dy < step; dy++) {
+          di = i + 4 * dx + 4 * w * dy;
+          out[di] = tr;
+          out[di + 1] = tg;
+          out[di + 2] = tb;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+// src/epaper/dither/algorithms/error-diffusion.js
+function errorDiffusion(uint8data, palette, step, h, w) {
+  const d = new Uint8ClampedArray(uint8data);
+  const out = new Uint8ClampedArray(uint8data);
+  const ratio = 1 / 16;
+  const $i = function(x, y) {
+    return 4 * x + 4 * y * w;
+  };
+  let r, g, b, q, i, color, approx, tr, tg, tb, dx, dy, di;
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      i = 4 * x + 4 * y * w;
+      r = i;
+      g = i + 1;
+      b = i + 2;
+      color = [d[r], d[g], d[b]];
+      approx = approximateColor(color, palette);
+      q = [];
+      q[r] = d[r] - approx[0];
+      q[g] = d[g] - approx[1];
+      q[b] = d[b] - approx[2];
+      d[$i(x + step, y)] = d[$i(x + step, y)] + 7 * ratio * q[r];
+      d[$i(x - step, y + 1)] = d[$i(x - 1, y + step)] + 3 * ratio * q[r];
+      d[$i(x, y + step)] = d[$i(x, y + step)] + 5 * ratio * q[r];
+      d[$i(x + step, y + step)] = d[$i(x + 1, y + step)] + Number(ratio) * q[r];
+      d[$i(x + step, y) + 1] = d[$i(x + step, y) + 1] + 7 * ratio * q[g];
+      d[$i(x - step, y + step) + 1] = d[$i(x - step, y + step) + 1] + 3 * ratio * q[g];
+      d[$i(x, y + step) + 1] = d[$i(x, y + step) + 1] + 5 * ratio * q[g];
+      d[$i(x + step, y + step) + 1] = d[$i(x + step, y + step) + 1] + Number(ratio) * q[g];
+      d[$i(x + step, y) + 2] = d[$i(x + step, y) + 2] + 7 * ratio * q[b];
+      d[$i(x - step, y + step) + 2] = d[$i(x - step, y + step) + 2] + 3 * ratio * q[b];
+      d[$i(x, y + step) + 2] = d[$i(x, y + step) + 2] + 5 * ratio * q[b];
+      d[$i(x + step, y + step) + 2] = d[$i(x + step, y + step) + 2] + Number(ratio) * q[b];
+      tr = approx[0];
+      tg = approx[1];
+      tb = approx[2];
+      for (dx = 0; dx < step; dx++) {
+        for (dy = 0; dy < step; dy++) {
+          di = i + 4 * dx + 4 * w * dy;
+          out[di] = tr;
+          out[di + 1] = tg;
+          out[di + 2] = tb;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+// src/epaper/dither/algorithms/ordered.js
+function ordered(uint8data, palette, step, h, w) {
+  const d = new Uint8ClampedArray(uint8data);
+  const ratio = 3;
+  const m = [
+    [1, 9, 3, 11],
+    [13, 5, 15, 7],
+    [4, 12, 2, 10],
+    [16, 8, 14, 6]
+  ];
+  let r, g, b, i, color, approx, tr, tg, tb, dx, dy, di;
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      i = 4 * x + 4 * y * w;
+      r = i;
+      g = i + 1;
+      b = i + 2;
+      d[r] += m[x % 4][y % 4] * ratio;
+      d[g] += m[x % 4][y % 4] * ratio;
+      d[b] += m[x % 4][y % 4] * ratio;
+      color = [d[r], d[g], d[b]];
+      approx = approximateColor(color, palette);
+      tr = approx[0];
+      tg = approx[1];
+      tb = approx[2];
+      for (dx = 0; dx < step; dx++) {
+        for (dy = 0; dy < step; dy++) {
+          di = i + 4 * dx + 4 * w * dy;
+          d[di] = tr;
+          d[di + 1] = tg;
+          d[di + 2] = tb;
+        }
+      }
+    }
+  }
+  return d;
+}
+
+// src/epaper/dither/index.js
+var _Dither = class {
+  constructor({ algorithm = _Dither.atkinson, step = 1, palette = [[0, 0, 0], [255, 255, 255]] } = {}) {
+    this.options = {
+      algorithm,
+      step,
+      palette
+    };
+  }
+  ditherImageData(imageData, options = {}) {
+    options = { ...this.options, ...options };
+    const ditherFn = options.algorithm;
+    const output = ditherFn.call(
+      this,
+      imageData.data,
+      options.palette,
+      options.step,
+      imageData.height,
+      imageData.width
+    );
+    imageData.data.set(output);
+  }
+};
+var Dither = _Dither;
+__publicField(Dither, "atkinson", atkinson);
+__publicField(Dither, "errorDiffusion", errorDiffusion);
+__publicField(Dither, "ordered", ordered);
+
+// src/epaper/epaper-core.js
+var _EpaperCore = class {
+  constructor({ width = 250, height = 122, mtu = 127 } = {}) {
+    this._width = width;
+    this._height = height;
+    this._mtu = mtu;
+    this._pixelData = new PixelData(width, height);
+    this._paintCanvas = new OffscreenCanvas(width, height);
+    this._ctx = this._paintCanvas.getContext("2d", { willReadFrequently: true });
+    this._dither = new Dither();
+  }
+  get width() {
+    return this._width;
+  }
+  get height() {
+    return this._height;
+  }
+  get frameBuffer() {
+    return this._pixelData;
+  }
+  fromImage({ image, x, y, width, height, dither, step, paletteType } = {}) {
+    this._ctx.clearRect(0, 0, this.width, this.height);
+    this._ctx.fillStyle = "white";
+    this._ctx.fillRect(0, 0, this.width, this.height);
+    this._ctx.drawImage(image, x, y, width, height, 0, 0, this.width, this.height);
+    const imageData = this._ctx.getImageData(0, 0, this.width, this.height);
+    let palette;
+    if (paletteType === 0) {
+      palette = [[0, 0, 0], [255, 255, 255]];
+    } else if (paletteType === 1) {
+      palette = [[255, 0, 0], [255, 255, 255]];
+    } else if (paletteType === 2) {
+      palette = [[0, 0, 0], [255, 255, 255], [255, 0, 0]];
+    } else {
+      throw new Error("Invalid palette type.");
+    }
+    this._dither.ditherImageData(imageData, {
+      algorithm: Dither[dither],
+      palette,
+      step
+    });
+    this._pixelData.fromImageData(imageData);
+    this._ctx.putImageData(imageData, 0, 0);
+    return this._pixelData;
+  }
+  getARGBData() {
+    const argbData = new Uint32Array(this._width * this._height);
+    this._pixelData.traverseByRowAndColumn((x, y, color, i) => {
+      const c = 4278190080 | color[0] << 16 | color[1] << 8 | color[2];
+      argbData[i] = c;
+    });
+    return argbData;
+  }
+  encodeFrameBuffer() {
+    const { width, height } = this;
+    const colorLUT = /* @__PURE__ */ new Map();
+    colorLUT.set(4278190080, 0);
+    colorLUT.set(4294967295, 1);
+    colorLUT.set(4294901760, 3);
+    const pixels = this.getARGBData();
+    const displayBuffer = new Uint8Array(_EpaperCore.RAM_SIZE);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const color = pixels[y * width + x];
+        const bits = colorLUT.get(color) & 3;
+        const y2 = width - 1 - x;
+        const index = y2 * 32 + Math.floor(y / 4);
+        const shift = (y & 3) << 1;
+        displayBuffer[index] |= bits << shift;
+      }
+    }
+    return displayBuffer;
+  }
+  decodeFrameBuffer(frameBuffer) {
+    const { width, height } = this;
+    const pixels = new Uint32Array(width * height);
+    const colorLUT = [4278190080, 4294967295, 0, 4294901760];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const y2 = width - 1 - x;
+        const index = y2 * 32 + Math.floor(y / 4);
+        const shift = (y & 3) << 1;
+        const px = frameBuffer[index] >>> shift & 3;
+        pixels[y * width + x] = colorLUT[px];
+      }
+    }
+    return pixels;
+  }
+  _getUploadPlayload(frameBuffer, offset) {
+    const mtu = this._mtu;
+    const action_write = 0;
+    const header_size = 6;
+    const trunkSize = Math.min(mtu - header_size, _EpaperCore.RAM_SIZE - offset);
+    if (trunkSize <= 0) {
+      throw new Error("Data out of bound.");
+    }
+    const data = new Uint8Array(mtu);
+    data[0] = action_write;
+    int2Bytes(data, 1, offset, 4);
+    data[5] = trunkSize & 255;
+    data.set(frameBuffer.subarray(offset, offset + trunkSize), header_size);
+    return data;
+  }
+  generateUploadPlayloads(frameBuffer = this.encodeFrameBuffer()) {
+    const payloads = [];
+    const header_size = 6;
+    for (let offset = 0; offset < _EpaperCore.RAM_SIZE; offset += this._mtu - header_size) {
+      payloads.push(this._getUploadPlayload(frameBuffer, offset));
+    }
+    return payloads;
+  }
+};
+var EpaperCore = _EpaperCore;
+__publicField(EpaperCore, "RAM_SIZE", 8e3);
+__publicField(EpaperCore, "DITHER_AKTINSON", "atkinson");
+__publicField(EpaperCore, "DITHER_ORDERED", "ordered");
+__publicField(EpaperCore, "DITHER_ERR_DIFFUSION", "errDiffusion");
+
+// src/common/defer.js
+function Defer() {
+  this.promise = new Promise((resolve, reject) => {
+    this.resolve = resolve;
+    this.reject = reject;
+  });
+}
+
+// src/epaper/epaper.js
+var READ_UUID = 53251;
+var WRITE_UUID = 53250;
+var _Epaper = class extends Device {
+  constructor({
+    filters = [{ namePrefix: "Epaper" }, { namePrefix: "EPD" }],
+    optionalServices = [53503]
+  } = {}) {
+    super({ filters, optionalServices });
+    this._core = new EpaperCore({ mtu: _Epaper.MTU });
+  }
+  get width() {
+    return this._core.width;
+  }
+  get height() {
+    return this._core.height;
+  }
+  get canvas() {
+    return this._core._paintCanvas;
+  }
+  async connect(rebound = true) {
+    await super.connect(rebound);
+    const service = (await this.server.getPrimaryServices())[0];
+    this._readCharacteristic = await service.getCharacteristic(READ_UUID);
+    this._writeCharacteristic = await service.getCharacteristic(WRITE_UUID);
+    return this;
+  }
+  async flush() {
+    return await this._writeCharacteristic.writeValue(new Uint8Array([1]));
+  }
+  async upload() {
+    const payloads = this._core.generateUploadPlayloads();
+    const mtu = _Epaper.MTU;
+    const header_size = 6;
+    let offset = 0;
+    for (let i = 0; i < payloads.length; i++) {
+      const payload = payloads[i];
+      await this._writeCharacteristic.writeValue(payload);
+      offset += mtu - header_size;
+      if (typeof CustomEvent === "function") {
+        const event = new CustomEvent("epaperprogress", {
+          detail: {
+            type: "upload",
+            percent: Math.min(100, offset * 100 / EpaperCore.RAM_SIZE),
+            payload,
+            size: EpaperCore.RAM_SIZE
+          }
+        });
+        window.dispatchEvent(event);
+      }
+    }
+  }
+  fromImage(image, { x = 0, y = 0, width = this.width, height = this.height, dither = "atkinson", step = 1, paletteType = 0 } = {}) {
+    return this._core.fromImage({ image, x, y, width, height, dither, step, paletteType });
+  }
+  async download() {
+    const mtu = _Epaper.MTU;
+    const header_size = 6;
+    const action_read = 2;
+    const request = new Uint8Array(header_size);
+    request[0] = action_read;
+    let offset = 0;
+    const frameBuffer = new Uint8Array(EpaperCore.RAM_SIZE);
+    let notificationDefer = null;
+    const notificationHandler = (event) => {
+      const data = new Uint8Array(event.target.value.buffer);
+      if (data[0] === 2 && data[1] === 0 && data.length === mtu - header_size + 2) {
+        notificationDefer.resolve({ buffer: data.slice(2) });
+      } else if (data[0] === 2 && data[1] === 1) {
+        notificationDefer.reject(new Error("Read data failed."));
+      }
+    };
+    await this._readCharacteristic.startNotifications();
+    this._readCharacteristic.addEventListener("characteristicvaluechanged", notificationHandler);
+    while (offset < EpaperCore.RAM_SIZE) {
+      int2Bytes(request, 1, offset, 4);
+      request[5] = Math.min(mtu - header_size, EpaperCore.RAM_SIZE - offset) & 255;
+      notificationDefer = new Defer();
+      await this._writeCharacteristic.writeValueWithResponse(request);
+      const response = await notificationDefer.promise;
+      const trunk = response.buffer;
+      frameBuffer.set(trunk, offset);
+      offset += mtu - header_size;
+      if (typeof CustomEvent === "function") {
+        const event = new CustomEvent("epaperprogress", {
+          detail: {
+            type: "download",
+            percent: Math.min(100, offset * 100 / EpaperCore.RAM_SIZE),
+            payload: request,
+            trunk,
+            size: EpaperCore.RAM_SIZE
+          }
+        });
+        window.dispatchEvent(event);
+      }
+    }
+    await this._readCharacteristic.stopNotifications();
+    this._readCharacteristic.removeEventListener(
+      "characteristicvaluechanged",
+      notificationHandler
+    );
+    return frameBuffer;
+  }
+};
+var Epaper = _Epaper;
+__publicField(Epaper, "MTU", 127);
+
 // src/divoom/utils.js
 function int2hexlittle(value) {
   if (value > 65535 || value < 0) {
@@ -1114,73 +1633,15 @@ var TimeboxEvoMessage = class {
 };
 
 // src/divoom/matrix.js
-var Matrix = class {
+var Matrix = class extends PixelData {
   constructor(width = 32, height = 32) {
-    this._width = width;
-    this._height = height;
-    this.pixels = [];
-    this.transformByRowAndColumn(() => [0, 0, 0]);
-  }
-  set width(value) {
-    this._width = value;
-    this.pixels = [];
-    this.transformByRowAndColumn(() => [0, 0, 0]);
-  }
-  get width() {
-    return this._width;
-  }
-  set height(value) {
-    this._height = value;
-    this.pixels = [];
-    this.transformByRowAndColumn(() => [0, 0, 0]);
-  }
-  get height() {
-    return this._height;
-  }
-  clone() {
-    const cloned = new Matrix(this._width, this._height);
-    cloned.pixels = [...this.pixels];
-    return cloned;
-  }
-  traverseByRowAndColumn(fn) {
-    for (let y = 0; y < this._height; y++) {
-      for (let x = 0; x < this._width; x++) {
-        const index = y * this._width + x;
-        fn(x, y, this.pixels[index], index);
-      }
-    }
-  }
-  transformByRowAndColumn(fn) {
-    for (let y = 0; y < this._height; y++) {
-      for (let x = 0; x < this._width; x++) {
-        const index = y * this._width + x;
-        this.pixels[index] = fn(x, y, this.pixels[index], index);
-      }
-    }
-  }
-  assertBounds(x, y) {
-    if (x < 0 || x > this._width) {
-      throw new Error(`x coordinate out of bounds: ${x} > ${this._width}`);
-    }
-    if (y < 0 || y > this._height) {
-      throw new Error(`y coordinate out of bounds: ${y} > ${this._height}`);
-    }
-  }
-  set(x, y, color) {
-    this.assertBounds(x, y);
-    const oldValue = this.pixels[y * this._width + x];
-    this.pixels[y * this._width + x] = color;
-    return oldValue;
-  }
-  get(x, y) {
-    this.assertBounds(x, y);
-    return this.pixels[y * this._width + x];
+    super(width, height);
   }
 };
 
 // src/divoom/pixoo.js
 var Pixoo = class {
-  constructor(server = "http://localhost:9527", width = 16, height = 16) {
+  constructor({ server = "http://localhost:9527", width = 16, height = 16 } = {}) {
     this._server = server;
     this._matrix = new Matrix(width, height);
     this._canvas = null;
@@ -1254,18 +1715,7 @@ var Pixoo = class {
     return this._matrix;
   }
   transferCanvasData(canvas = this.canvas, matrix = this.matrix) {
-    if (canvas.width !== matrix.width) {
-      matrix.width = canvas.width;
-      matrix.height = canvas.height;
-    }
-    const { width, height } = canvas;
-    const ctx = canvas.getContext("2d");
-    const { data } = ctx.getImageData(0, 0, width, height);
-    matrix.transformByRowAndColumn((x, y, pixel, index) => {
-      const i = index * 4;
-      return [data[i], data[i + 1], data[i + 2]];
-    });
-    return matrix;
+    return matrix.fromCanvas(canvas);
   }
   setUpdateLatency(latency = 0) {
     this._updateDelay = latency;
@@ -1273,7 +1723,7 @@ var Pixoo = class {
   forceUpdate() {
     if (!this._updatePromise) {
       this._updatePromise = new Promise((resolve) => {
-        if (this._updateDelay <= 0) {
+        if (this._updateDelay <= 0 && typeof requestAnimationFrame === "function") {
           requestAnimationFrame(() => {
             this._updatePromise = null;
             this.update();
@@ -1288,17 +1738,23 @@ var Pixoo = class {
         }
       });
     }
+    return this._updatePromise;
   }
   async update() {
     const matrix = this.transferCanvasData();
     const message = this.getStaticImage(matrix);
     await this.send(message);
-    const e = new CustomEvent("pixooupdate", { detail: { device: this } });
-    window.dispatchEvent(e);
+    if (typeof CustomEvent === "function") {
+      const e = new CustomEvent("pixooupdate", { detail: { device: this } });
+      window.dispatchEvent(e);
+    }
   }
-  async transferAnimation(frames = this._animationFrames) {
+  async playAnimation(frames = this._animationFrames) {
     const messages = this.getAnimationData(frames);
     await this.send(messages.join(""));
+  }
+  clearAnimationFrames() {
+    this._animationFrames.length = 0;
   }
   appendAnimationFrame(image, delay = 0) {
     let frame;
@@ -1483,15 +1939,253 @@ var Pixoo = class {
 
 // src/divoom/pixoo-max.js
 var PixooMax = class extends Pixoo {
-  constructor(server = "//localhost:9527", width = 32, height = 32) {
-    super(server, width, height);
+  constructor({ server = "//localhost:9527", width = 32, height = 32 } = {}) {
+    super({ server, width, height });
     this.type = "max";
   }
 };
+
+// src/common/sleep.js
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// src/divoom/timebox-mini.js
+var LIGHT_SERVICE_UUID = "49535343-fe7d-4ae5-8fa9-9fafd205e455";
+var LIGHT_CHARACTERISTIC_UUID = "49535343-1e4d-4bd9-ba61-23c647249616";
+var _TimeboxMini = class extends Device {
+  constructor({
+    filters = [{ namePrefix: "TimeBox" }],
+    optionalServices = [LIGHT_SERVICE_UUID],
+    width = 11,
+    height = 11
+  } = {}) {
+    super({ filters, optionalServices });
+    this._width = width;
+    this._height = height;
+    this._canvas = new OffscreenCanvas(width, height);
+    this._ctx = this._canvas.getContext("2d", { willReadFrequently: true });
+    this._animationFrames = [];
+  }
+  get width() {
+    return this._width;
+  }
+  get height() {
+    return this._height;
+  }
+  get canvas() {
+    return this._canvas;
+  }
+  async connect(rebound = true) {
+    await super.connect(rebound);
+    const service = await this.server.getPrimaryService(LIGHT_SERVICE_UUID);
+    this._lightCharacteristic = await service.getCharacteristic(LIGHT_CHARACTERISTIC_UUID);
+    await this.enterDrawingMode();
+    await sleep(100);
+    return this;
+  }
+  encodeCommand(buffer) {
+    const payload = new Uint8Array(buffer.length + 4);
+    const len = payload.length - 2;
+    payload[0] = len & 255;
+    payload[1] = len >>> 8 & 255;
+    payload.set(buffer, 2);
+    const checksum = payload.reduce((a, b) => a + b, 0);
+    payload[payload.length - 2] = checksum & 255;
+    payload[payload.length - 1] = checksum >>> 8 & 255;
+    const extra = payload.filter((value) => value === 1 || value === 2 || value === 3).length;
+    const message = new Uint8Array(payload.length + extra + 2);
+    let m = 1;
+    for (let i = 0; i < payload.length; i++) {
+      if (payload[i] === 1) {
+        message[m] = 3;
+        message[m + 1] = 4;
+        m += 2;
+      } else if (payload[i] === 2) {
+        message[m] = 3;
+        message[m + 1] = 5;
+        m += 2;
+      } else if (payload[i] === 3) {
+        message[m] = 3;
+        message[m + 1] = 6;
+        m += 2;
+      } else {
+        message[m] = payload[i];
+        m++;
+      }
+    }
+    message[0] = 1;
+    message[message.length - 1] = 2;
+    return message;
+  }
+  async sendMessage(msg) {
+    for (let i = 0; i < msg.length; i += _TimeboxMini.MTU) {
+      await this._lightCharacteristic.writeValue(msg.slice(i, i + _TimeboxMini.MTU));
+    }
+  }
+  async enterClockMode(color = "white", type = 0) {
+    const { r, g, b } = new TinyColor(color).toRgb();
+    const msg = this.encodeCommand(
+      new Uint8Array([
+        69,
+        0,
+        type,
+        r,
+        g,
+        b
+      ])
+    );
+    await this.sendMessage(msg);
+  }
+  async enterDrawingMode() {
+    const msg = this.encodeCommand(
+      new Uint8Array([
+        68,
+        0,
+        10,
+        10,
+        4
+      ])
+    );
+    await this.sendMessage(msg);
+  }
+  async enterTempMode(color = "white", type = 0) {
+    const { r, g, b } = new TinyColor(color).toRgb();
+    const msg = this.encodeCommand(
+      new Uint8Array([
+        69,
+        1,
+        type,
+        r,
+        g,
+        b
+      ])
+    );
+    await this.sendMessage(msg);
+  }
+  async enterLightMode(color = "white", intensity = 100, mode = 0) {
+    const { r, g, b } = new TinyColor(color).toRgb();
+    const msg = this.encodeCommand(
+      new Uint8Array([
+        69,
+        2,
+        r,
+        g,
+        b,
+        intensity,
+        mode
+      ])
+    );
+    await this.sendMessage(msg);
+  }
+  async enterAnimationMode(preset = 0) {
+    const msg = this.encodeCommand(
+      new Uint8Array([
+        69,
+        3,
+        preset
+      ])
+    );
+    await this.sendMessage(msg);
+  }
+  async setSoundMode(topColor = "red", activeColor = "white", preset = 0) {
+    const { r: r1, g: g1, b: b1 } = new TinyColor(topColor).toRgb();
+    const { r: r2, g: g2, b: b2 } = new TinyColor(activeColor).toRgb();
+    const msg = this.encodeCommand(
+      new Uint8Array([
+        69,
+        4,
+        preset,
+        r1,
+        g1,
+        b1,
+        r2,
+        g2,
+        b2
+      ])
+    );
+    await this.sendMessage(msg);
+  }
+  async enterImageMode() {
+    const msg = this.encodeCommand(
+      new Uint8Array([
+        69,
+        5
+      ])
+    );
+    await this.sendMessage(msg);
+  }
+  setPixel(color, x, y) {
+    return this.setPixels(color, [[x, y]]);
+  }
+  async setPixels(color, positions) {
+    const { r, g, b } = new TinyColor(color).toRgb();
+    const p = positions.map(([x, y]) => y * this._width + x);
+    const msg = this.encodeCommand(
+      new Uint8Array([
+        88,
+        r,
+        g,
+        b,
+        p.length,
+        ...p
+      ])
+    );
+    await this.sendMessage(msg);
+  }
+  encodeImage(image = this._canvas) {
+    if (image !== this._canvas) {
+      this._ctx.drawImage(image, 0, 0, this._width, this._height);
+    }
+    const data = this._ctx.getImageData(0, 0, this._width, this._height).data;
+    const pixels = new Uint8Array(data.length / 4 * 3);
+    for (let i = 0; i < data.length; i += 4) {
+      pixels[i / 4 * 3] = data[i];
+      pixels[i / 4 * 3 + 1] = data[i + 1];
+      pixels[i / 4 * 3 + 2] = data[i + 2];
+    }
+    const buffer = new Uint8Array(Math.ceil(pixels.length / 2));
+    for (let b = 0, i = 0; i < pixels.length; b++, i += 2) {
+      if (i === pixels.length - 1) {
+        buffer[b] = pixels[i] >> 4;
+      } else {
+        buffer[b] = pixels[i] >> 4 | pixels[i + 1] >> 4 << 4;
+      }
+    }
+    return buffer;
+  }
+  async setImage(image) {
+    const buffer = this.encodeImage(image);
+    const payload = new Uint8Array(buffer.length + 5);
+    payload.set([68, 0, 10, 10, 4, ...buffer]);
+    const msg = this.encodeCommand(payload);
+    await this.sendMessage(msg);
+  }
+  clearAnimationFrames() {
+    this._animationFrames.length = 0;
+  }
+  appendAnimationFrame(image, duration = 1) {
+    const buffer = this.encodeImage(image);
+    this._animationFrames.push({ buffer, duration });
+  }
+  async playAnimation() {
+    for (let i = 0; i < this._animationFrames.length; i++) {
+      const { buffer, duration } = this._animationFrames[i];
+      const payload = new Uint8Array(buffer.length + 8);
+      payload.set([73, 0, 10, 10, 4, i, duration, ...buffer]);
+      const msg = this.encodeCommand(payload);
+      await this.sendMessage(msg);
+    }
+  }
+};
+var TimeboxMini = _TimeboxMini;
+__publicField(TimeboxMini, "MTU", 127);
 export {
   Device,
+  Epaper,
   Pixoo,
   PixooMax,
   Playbulb,
+  TimeboxMini,
   loadImage
 };

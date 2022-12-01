@@ -7,6 +7,8 @@
 -   [x] [Mipow-Playbulb-LED](https://www.mipow.com/products/mipow-smart-bulb) | **GATT ✔︎** | **SPP x**
 -   [x] [Mipow-Playbulb-Sphere](https://www.mipow.com/products/playbulb-sphere) | **GATT ✔︎** | **SPP x**
 -   [x] [Mipow-Playbulb-Candle](https://www.mipow.com/products/playbulb-candle) | **GATT ✔︎** | **SPP x**
+-   [x] [Epaper 蓝牙价签](https://www.cnblogs.com/yanye0xff/p/16049232.html) | **GATT ✔︎** | **SPP x**
+-   [x] [Divoom-Timebox-Mini](https://www.divoom-gz.com/product/timebox-mini.html) | **GATT ✔︎** | **SPP x**
 -   [x] [Pixoo 16x16](https://divoom.com/products/divoom-pixoo) | **GATT x** | **SPP ✔︎**
 -   [x] [Pixoo-Max](https://divoom.com/products/divoom-pixoo-max) | **GATT x** | **SPP ✔︎**
 
