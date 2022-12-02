@@ -81,38 +81,35 @@ export class TimeboxMini extends Device {
   }
 
   async sendMessage(msg) {
+    const command = this.encodeCommand(msg);
     // 需要分段，最大一次传送127个字节
-    for(let i = 0; i < msg.length; i += TimeboxMini.MTU) {
+    for(let i = 0; i < command.length; i += TimeboxMini.MTU) {
       // eslint-disable-next-line no-await-in-loop
-      await this._lightCharacteristic.writeValue(msg.slice(i, i + TimeboxMini.MTU));
+      await this.write(this._lightCharacteristic, command.slice(i, i + TimeboxMini.MTU), {msg});
     }
   }
 
   async enterClockMode(color = 'white', type = 0) {
     const {r, g, b} = new TinyColor(color).toRgb();
 
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        0x45, // Change box mode
-        0x00, // to clock
-        type, // type: 0 = 12, 1 = 24
-        r, g, b, // color
-      ]),
-    );
+    const msg = new Uint8Array([
+      0x45, // Change box mode
+      0x00, // to clock
+      type, // type: 0 = 12, 1 = 24
+      r, g, b, // color
+    ]);
 
     await this.sendMessage(msg);
   }
 
   async enterDrawingMode() {
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        0x44, // Enter drawing mode
-        0x00,
-        0x0a,
-        0x0a,
-        0x04,
-      ]),
-    );
+    const msg = new Uint8Array([
+      0x44, // Enter drawing mode
+      0x00,
+      0x0a,
+      0x0a,
+      0x04,
+    ]);
 
     await this.sendMessage(msg);
   }
@@ -120,14 +117,12 @@ export class TimeboxMini extends Device {
   async enterTempMode(color = 'white', type = 0) {
     const {r, g, b} = new TinyColor(color).toRgb();
 
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        0x45, // Change box mode
-        0x01, // to temperature
-        type, // type: 0 = C, 1 = F
-        r, g, b, // color
-      ]),
-    );
+    const msg = new Uint8Array([
+      0x45, // Change box mode
+      0x01, // to temperature
+      type, // type: 0 = C, 1 = F
+      r, g, b, // color
+    ]);
 
     await this.sendMessage(msg);
   }
@@ -135,27 +130,23 @@ export class TimeboxMini extends Device {
   async enterLightMode(color = 'white', intensity = 0x64, mode = 0) {
     const {r, g, b} = new TinyColor(color).toRgb();
 
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        0x45, // Change box mode
-        0x02, // to light
-        r, g, b, // color
-        intensity, // intensity: 0x00 - 0x64
-        mode, // mode: 0x00 - 0x01
-      ]),
-    );
+    const msg = new Uint8Array([
+      0x45, // Change box mode
+      0x02, // to light
+      r, g, b, // color
+      intensity, // intensity: 0x00 - 0x64
+      mode, // mode: 0x00 - 0x01
+    ]);
 
     await this.sendMessage(msg);
   }
 
   async enterAnimationMode(preset = 0) {
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        0x45, // Change box mode
-        0x03, // to animation
-        preset,
-      ]),
-    );
+    const msg = new Uint8Array([
+      0x45, // Change box mode
+      0x03, // to animation
+      preset,
+    ]);
 
     await this.sendMessage(msg);
   }
@@ -164,26 +155,22 @@ export class TimeboxMini extends Device {
     const {r: r1, g: g1, b: b1} = new TinyColor(topColor).toRgb();
     const {r: r2, g: g2, b: b2} = new TinyColor(activeColor).toRgb();
 
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        0x45, // Change box mode
-        0x04, // to sound based animation
-        preset,
-        r1, g1, b1, // top color
-        r2, g2, b2, // active color
-      ]),
-    );
+    const msg = new Uint8Array([
+      0x45, // Change box mode
+      0x04, // to sound based animation
+      preset,
+      r1, g1, b1, // top color
+      r2, g2, b2, // active color
+    ]);
 
     await this.sendMessage(msg);
   }
 
   async enterImageMode() {
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        0x45, // Change box mode
-        0x05, // to user image
-      ]),
-    );
+    const msg = new Uint8Array([
+      0x45, // Change box mode
+      0x05, // to user image
+    ]);
 
     await this.sendMessage(msg);
   }
@@ -196,14 +183,12 @@ export class TimeboxMini extends Device {
     const {r, g, b} = new TinyColor(color).toRgb();
     const p = positions.map(([x, y]) => y * this._width + x);
 
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        0x58, // Drawing pad control
-        r, g, b, // color
-        p.length, // number of positions = 1
-        ...p, // single position: 0 to (11 x 11) - 1
-      ]),
-    );
+    const msg = new Uint8Array([
+      0x58, // Drawing pad control
+      r, g, b, // color
+      p.length, // number of positions = 1
+      ...p, // single position: 0 to (11 x 11) - 1
+    ]);
 
     await this.sendMessage(msg);
   }
@@ -239,8 +224,7 @@ export class TimeboxMini extends Device {
     const buffer = this.encodeImage(image);
     const payload = new Uint8Array(buffer.length + 5);
     payload.set([0x44, 0x00, 0x0a, 0x0a, 0x04, ...buffer]);
-    const msg = this.encodeCommand(payload);
-    await this.sendMessage(msg);
+    await this.sendMessage(payload);
   }
 
   clearAnimationFrames() {
@@ -257,9 +241,8 @@ export class TimeboxMini extends Device {
       const {buffer, duration} = this._animationFrames[i];
       const payload = new Uint8Array(buffer.length + 8);
       payload.set([0x49, 0x00, 0x0a, 0x0a, 0x04, i, duration, ...buffer]);
-      const msg = this.encodeCommand(payload);
       // eslint-disable-next-line no-await-in-loop
-      await this.sendMessage(msg);
+      await this.sendMessage(payload);
     }
   }
 }

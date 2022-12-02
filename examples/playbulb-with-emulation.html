@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Playbulb Light</title>
+  <style>
+    :root {
+      --bulb-color: #fff;
+      --bulb-gradient-color: #555;
+    }
+
+    * {
+      padding: 0;
+      margin: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #222;
+    }
+
+    body.on {
+      background: radial-gradient(var(--bulb-gradient-color), #111);
+    }
+
+    .bulb {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      background-color: #444;
+      border-radius: 50%;
+      z-index: 2;
+    }
+
+    body:not(.on) .bulb {
+      background-color: #444!important;
+      box-shadow: unset!important;
+    }
+    body:not(.on) .bulb::before,
+    body:not(.on) .bulb::after {
+      background-color: inherit!important;
+    }
+    body:not(.on) span {
+      box-shadow: inherit!important;
+    }
+
+    body.on .bulb {
+      background-color: var(--bulb-color);
+      box-shadow: 0 0 50px var(--bulb-color),
+      0 0 100px var(--bulb-color),
+      0 0 150px var(--bulb-color),
+      0 0 200px var(--bulb-color),
+      0 0 250px var(--bulb-color),
+      0 0 300px var(--bulb-color),
+      0 0 350px var(--bulb-color);
+    }
+
+    body.on .bulb::before {
+      background-color: var(--bulb-color);
+    }
+
+    body.on .bulb::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 120px;
+      height: 120px;
+      background-color: var(--bulb-color);
+      border-radius: 50%;
+      filter: blur(40px);
+    }
+
+    body.on .bulb span:nth-of-type(1) {
+      box-shadow: 20px 20px 0 10px var(--bulb-color);
+    }
+
+    body.on .bulb span:nth-of-type(2) {
+      box-shadow: -20px 20px 0 10px var(--bulb-color);
+    }
+
+    .bulb::before {
+      content: '';
+      position: absolute;
+      top: -50px;
+      left: 22.5px;
+      width: 35px;
+      height: 80px;
+      background: #444;
+      border-top: 30px solid #000;
+      border-radius: 10px;
+    }
+
+    .bulb span:nth-of-type(1) {
+      position: absolute;
+      top: -16px;
+      left: -4px;
+      display: block;
+      width: 30px;
+      height: 30px;
+      background-color: transparent;
+      transform: rotate(342deg);
+      border-bottom-right-radius: 40px;
+      box-shadow: 20px 20px 0 10px #444;
+    }
+
+    .bulb span:nth-of-type(2) {
+      position: absolute;
+      top: -16px;
+      right: -4px;
+      display: block;
+      width: 30px;
+      height: 30px;
+      background-color: transparent;
+      transform: rotate(17deg);
+      border-bottom-left-radius: 40px;
+      box-shadow: -20px 20px 0 10px #444;
+    }
+
+    .wire {
+      position: absolute;
+      left: calc(50% - 2px);
+      bottom: 50%;
+      width: 4px;
+      height: 60vh;
+      background-color: #000;
+      z-index: 1;
+    }
+
+    .switch {
+      position: absolute;
+      bottom: 50px;
+      right: 50px;
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(#eee, #ccc, #eee);
+      border: 3px solid #000;
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .switch .btn {
+      position: relative;
+      width: 25px;
+      height: 40px;
+      background: linear-gradient(#777, var(--bulb-color), #777);
+      border-radius: 6px;
+      border: 2px solid #000;
+      cursor: pointer;
+    }
+
+    .switch .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 85%;
+      background: linear-gradient(#fff, #fff);
+      border-radius: 4px;
+    }
+
+    .on .switch .btn::before {
+      top: 15%;
+    }
+
+    #audio {
+      display: none;
+    }
+
+    @media (max-width: 640px) {
+      .controls {
+        max-width: 50vw;
+      }
+    }
+
+    .controls {
+      color: white;
+      position: absolute;
+      bottom: 50px;
+      left: 30px;
+      border: 2px dashed white;
+      border-radius: 10%;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      padding: 0 10px;
+    }
+
+    .controls > label {
+      display: inline-block;
+      border: none;
+      color: inherit;
+      font-size: 4rem;
+      opacity: .7;
+      background-color: inherit;
+      cursor: pointer;
+      width: 80px;
+      text-align: center;
+    }
+
+    .controls > label:active {
+      color: yellow;
+      transform: translate(2px, 2px);
+    }
+
+    label > input {
+      position: relative;
+      visibility: hidden;
+      width: 0;
+      height: 0;
+      font-size: 0;
+      transform: translate(0, -4rem);
+    }
+  </style>
+</head>
+<body>
+  <div class="light">
+    <div class="wire"></div>
+    <div class="bulb">
+      <span></span>
+      <span></span>
+    </div>
+    <div class="controls">
+      <label id="bluetooth" title="蓝牙">ᛒ</label>
+      <label for="colorPicker" title="颜色" type="color"><input type="color" id="colorPicker"></input>◉</label>
+      <label id="modBlink" title="闪烁">✧</label>
+      <label id="modCandle" title="蜡烛">⏍</label>
+      <label id="modPulse" title="脉搏">♥︎</label>
+      <label id="modRainbow" title="彩虹">🌈</label>
+    </div>
+    <div class="switch">
+      <div class="btn"></div>
+    </div>
+  </div>
+  <script type="module">
+    import {Playbulb, TinyColor} from './jcode-bluetooth.js';
+    const device = new Playbulb();
+    window.device = device; // for debugger
+
+    const root = document.querySelector(':root');
+
+    function setBulbColor(color) {
+      const {r, g, b} = new TinyColor(color);
+      root.style.setProperty('--bulb-color', color);
+      root.style.setProperty('--bulb-gradient-color', `rgb(${0.3125 * r}, ${0.3125 * g}, ${0.3125 * b})`);
+    }
+    setBulbColor('#fff');
+
+    class BulbEffect {
+      constructor() {
+        this._interval = null;
+        this.type = null;
+      }
+
+      start(type) {
+        this.type = type;
+        this.stop();
+        const startTime = Date.now();
+        this._sColor = getBlubColor();
+        this._interval = setInterval(() => {
+          this._tick(Date.now() - startTime, this._sColor);
+        }, 1000 / 60);
+      }
+
+      stop() {
+        if(this._sColor) setBulbColor(this._sColor);
+        clearInterval(this._interval);
+        this._interval = null;
+        this._sColor = null;
+      }
+
+      _tick(t, sColor) {
+        const type = this.type;
+        if(type === 'blink') {
+          this._blink(t, sColor);
+        } else if(type === 'candling') {
+          this._candling(t, sColor);
+        } else if(type === 'pulse') {
+          this._pulse(t, sColor);
+        } else if(type === 'rainbow') {
+          this._rainbow(t, sColor);
+        }
+      }
+
+      _blink(t, sColor) {
+        const color = t % 580 < 290 ? sColor : '#222';
+        setBulbColor(color);
+      }
+      
+      _candling(t, sColor) {
+        let color = sColor;
+        const r = Math.random();
+        if(r < 0.01) color = '#333';
+        else if(r < 0.02) color = '#444';
+        else if(r < 0.03) color = '#555';
+        setBulbColor(color);
+      }
+
+      _pulse(t, sColor) {
+        let {r, g, b} = new TinyColor(sColor);
+        const p = Math.sin(t / (1.6 * 1000) * Math.PI * 2) * 0.5 + 0.5;
+        r = 22 * p + r * (1 - p);
+        g = 22 * p + g * (1 - p);
+        b = 22 * p + b * (1 - p);
+        setBulbColor(`rgb(${r}, ${g}, ${b})`);
+      }
+
+      _rainbow(t) {
+        const p = t / (48 * 1000) % 1;
+        const color = new TinyColor({h: p * 360, s: 1, l: 0.5});
+        setBulbColor(color.toHexString());
+      }
+    }
+
+    const bulbEffect = new BulbEffect();
+
+    function getBlubColor() {
+      if(body.classList.contains('on')) {
+        return root.style.getPropertyValue('--bulb-color');
+      }
+      return '#000';
+    }
+
+    async function updateDevice() {
+      await device.setColor(getBlubColor());
+    }
+
+    async function applyEffect(type) {
+      if(body.classList.contains('on')) {
+        if(type === 'mode-blink') {
+          bulbEffect.start('blink');
+          await device.setFlashingColor(getBlubColor());
+        } else if(type === 'mode-candling') {
+          bulbEffect.start('candling');
+          await device.setCandlingColor(getBlubColor());
+        } else if(type === 'mode-pulsing') {
+          bulbEffect.start('pulse');
+          await device.setPulsingColor(getBlubColor());
+        } else if(type === 'mode-rainbow') {
+          bulbEffect.start('rainbow');
+          await device.setRainbowFadingColor(getBlubColor());
+        } else {
+          await device.setColor(getBlubColor());
+        }
+      }
+    }
+
+    const btn = document.querySelector('.btn');
+    const body = document.querySelector('body');
+    btn.onclick = function () {
+      body.classList.toggle('on');
+      bulbEffect.stop();
+      updateDevice();
+    }
+    
+    bluetooth.onclick = async function() {
+      await device.connect();
+      await updateDevice();
+    }
+    colorPicker.onchange = function() {
+      this.parentElement.style.color = this.value;
+      bulbEffect.stop();
+      setBulbColor(this.value);
+      updateDevice();
+    }
+
+    modBlink.onclick = function() {
+      applyEffect('mode-blink');
+    }
+    modCandle.onclick = function() {
+      applyEffect('mode-candling');
+    }
+    modPulse.onclick = function() {
+      applyEffect('mode-pulsing');
+    }
+    modRainbow.onclick = function() {
+      applyEffect('mode-rainbow');
+    }
+  </script>
+</body>
+</html>

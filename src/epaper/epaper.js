@@ -36,8 +36,7 @@ export class Epaper extends Device {
   }
 
   async flush() {
-    // eslint-disable-next-line no-return-await
-    return await this._writeCharacteristic.writeValue(new Uint8Array([0x01]));
+    await this.write(this._writeCharacteristic, new Uint8Array([0x01]));
   }
 
   async upload() {
@@ -49,7 +48,7 @@ export class Epaper extends Device {
     for(let i = 0; i < payloads.length; i++) {
       const payload = payloads[i];
       // eslint-disable-next-line no-await-in-loop
-      await this._writeCharacteristic.writeValue(payload);
+      await this.write(this._writeCharacteristic, payload);
       offset += mtu - header_size;
       if(typeof CustomEvent === 'function') {
         const event = new CustomEvent('epaperprogress', {
@@ -82,7 +81,7 @@ export class Epaper extends Device {
     const notificationHandler = (event) => {
       const data = new Uint8Array(event.target.value.buffer);
       // console.log(data);
-      if(data[0] === 0x2 && data[1] === 0x0 && data.length === mtu - header_size + 2) { // 读取数据
+      if(data[0] === 0x2 && data[1] === 0x0) { // 读取数据
         // 成功读取数据
         notificationDefer.resolve({buffer: data.slice(2)});
       } else if(data[0] === 0x2 && data[1] === 0x1) {
@@ -101,7 +100,7 @@ export class Epaper extends Device {
       notificationDefer = new Defer();
 
       // eslint-disable-next-line no-await-in-loop
-      await this._writeCharacteristic.writeValueWithResponse(request);
+      await this.write(this._writeCharacteristic, request);
 
       // eslint-disable-next-line no-await-in-loop
       const response = await notificationDefer.promise;
@@ -123,10 +122,10 @@ export class Epaper extends Device {
         window.dispatchEvent(event);
       }
     }
+
     await this._readCharacteristic.stopNotifications();
     this._readCharacteristic.removeEventListener('characteristicvaluechanged',
       notificationHandler);
-
     return frameBuffer;
   }
 }

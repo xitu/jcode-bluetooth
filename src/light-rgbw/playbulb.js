@@ -44,43 +44,32 @@ class Playbulb extends Device {
   }
 
   async setColor(value) {
-    try {
-      const color = new TinyColor(value);
-      const {r, g, b} = color.toRgb();
-      const a = color.getAlpha();
-      const w = Math.round((1 - a) * 0xff);
-      await this._lightCharacteristic.writeValue(new Uint8Array([w, r, g, b]));
-    } catch (ex) {
-      await this.connect(false);
-      this.setColor(value);
-    }
+    const color = new TinyColor(value);
+    const {r, g, b} = color.toRgb();
+    const a = color.getAlpha();
+    const w = Math.round((1 - a) * 0xff);
+    await this.write(this._lightCharacteristic, new Uint8Array([w, r, g, b]), color);
   }
 
   async getColor() {
-    try {
-      const buffer = await this._lightCharacteristic.readValue();
-      const a = 1 - buffer.getUint8(0) / 255;
-      return new TinyColor({r: buffer.getUint8(1), g: buffer.getUint8(2), b: buffer.getUint8(3), a});
-    } catch (ex) {
-      await this.connect(false);
-      return this.getColor();
-    }
+    const buffer = await this._lightCharacteristic.readValue();
+    const a = 1 - buffer.getUint8(0) / 255;
+    return new TinyColor({r: buffer.getUint8(1), g: buffer.getUint8(2), b: buffer.getUint8(3), a});
   }
 
   async setColorEffect(value, effect = 0x00, speed = 0x1f) {
-    try {
-      const color = new TinyColor(value);
-      const {r, g, b} = color.toRgb();
-      const a = color.getAlpha();
-      const w = (1 - a) * 0xff;
-      await this._effectCharacteristic.writeValue(new Uint8Array([
-        w, r, g, b,
-        effect, 0x00, speed, 0x00,
-      ]));
-    } catch (ex) {
-      await this.connect(false);
-      this.setCandleEffectColor(value);
-    }
+    let color;
+
+    if(!value) color = await this.getColor();
+    else color = new TinyColor(value);
+
+    const {r, g, b} = color.toRgb();
+    const a = color.getAlpha();
+    const w = (1 - a) * 0xff;
+    await this.write(this._effectCharacteristic, new Uint8Array([
+      w, r, g, b,
+      effect, 0x00, speed, 0x00,
+    ]), {color, effect, speed});
   }
 
   async setFlashingColor(value, speed = 0x1f) {

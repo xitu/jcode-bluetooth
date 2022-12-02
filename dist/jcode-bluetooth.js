@@ -5,53 +5,6 @@ var __publicField = (obj, key, value) => {
   return value;
 };
 
-// src/device.js
-var Device = class {
-  constructor({ filters = [], optionalServices = [] } = {}) {
-    this.filters = filters;
-    this.optionalServices = optionalServices;
-    this._server = null;
-  }
-  async connect(rebound = true) {
-    if (rebound || !this._device) {
-      const { filters, optionalServices } = this;
-      const acceptAllDevices = filters.length <= 0;
-      const options = {};
-      if (acceptAllDevices)
-        options.acceptAllDevices = true;
-      else {
-        options.filters = filters;
-        options.optionalServices = optionalServices;
-      }
-      const device = await navigator.bluetooth.requestDevice(options);
-      device.addEventListener("gattserverdisconnected", () => {
-        this._server = null;
-        if (typeof CustomEvent === "function") {
-          const e = new CustomEvent("devicedisconnected", { detail: { device: this } });
-          window.dispatchEvent(e);
-        }
-      });
-      this._device = device;
-    }
-    this._server = await this._device.gatt.connect();
-    if (typeof CustomEvent === "function") {
-      const e = new CustomEvent("deviceconnected", { detail: { device: this } });
-      window.dispatchEvent(e);
-    }
-    return this;
-  }
-  async disconnect() {
-    await this.server.device.gatt.disconnect();
-    this._server = null;
-  }
-  get server() {
-    return this._server;
-  }
-  get isConnected() {
-    return this._server !== null;
-  }
-};
-
 // node_modules/@ctrl/tinycolor/dist/module/util.js
 function bound01(n, max) {
   if (isOnePointZero(n)) {
@@ -934,6 +887,72 @@ var TinyColor = function() {
   return TinyColor2;
 }();
 
+// src/device.js
+var Device = class {
+  constructor({ filters = [], optionalServices = [] } = {}) {
+    this.filters = filters;
+    this.optionalServices = optionalServices;
+    this._server = null;
+  }
+  async connect() {
+    const { filters, optionalServices } = this;
+    const acceptAllDevices = filters.length <= 0;
+    const options = {};
+    if (acceptAllDevices)
+      options.acceptAllDevices = true;
+    else {
+      options.filters = filters;
+      options.optionalServices = optionalServices;
+    }
+    const device = await navigator.bluetooth.requestDevice(options);
+    device.addEventListener("gattserverdisconnected", () => {
+      this._server = null;
+      if (typeof CustomEvent === "function") {
+        const e = new CustomEvent("devicedisconnected", { detail: { device: this } });
+        window.dispatchEvent(e);
+      }
+    });
+    this._device = device;
+    this._server = await this._device.gatt.connect();
+    if (typeof CustomEvent === "function") {
+      const e = new CustomEvent("deviceconnected", { detail: { device: this } });
+      window.dispatchEvent(e);
+    }
+    return this;
+  }
+  async read(characteristic) {
+    if (characteristic) {
+      return await characteristic.readValue();
+    }
+    if (!this._warned) {
+      console.warn("Characteristic not found. You may need to call connect() first.");
+      this._warned = true;
+    }
+  }
+  async write(characteristic, buffer, extra = null) {
+    if (characteristic) {
+      await characteristic.writeValue(buffer);
+    } else if (!this._warned) {
+      console.warn("Characteristic not found. You may need to call connect() first.");
+      this._warned = true;
+    }
+    if (typeof CustomEvent === "function") {
+      const e = new CustomEvent("devicestatechange", { detail: { device: this, buffer, extra } });
+      window.dispatchEvent(e);
+    }
+  }
+  async disconnect() {
+    await this.server.device.gatt.disconnect();
+    this._server = null;
+  }
+  get server() {
+    return this._server;
+  }
+  get isConnected() {
+    return this._server !== null;
+  }
+};
+
 // src/light-rgbw/playbulb.js
 var COLOR_UUID = 65532;
 var COLOR_EFFECT_UUID = 65531;
@@ -962,47 +981,36 @@ var _Playbulb = class extends Device {
     return Math.round((1 - color.getAlpha()) * 255);
   }
   async setColor(value) {
-    try {
-      const color = new TinyColor(value);
-      const { r, g, b } = color.toRgb();
-      const a = color.getAlpha();
-      const w = Math.round((1 - a) * 255);
-      await this._lightCharacteristic.writeValue(new Uint8Array([w, r, g, b]));
-    } catch (ex) {
-      await this.connect(false);
-      this.setColor(value);
-    }
+    const color = new TinyColor(value);
+    const { r, g, b } = color.toRgb();
+    const a = color.getAlpha();
+    const w = Math.round((1 - a) * 255);
+    await this.write(this._lightCharacteristic, new Uint8Array([w, r, g, b]), color);
   }
   async getColor() {
-    try {
-      const buffer = await this._lightCharacteristic.readValue();
-      const a = 1 - buffer.getUint8(0) / 255;
-      return new TinyColor({ r: buffer.getUint8(1), g: buffer.getUint8(2), b: buffer.getUint8(3), a });
-    } catch (ex) {
-      await this.connect(false);
-      return this.getColor();
-    }
+    const buffer = await this._lightCharacteristic.readValue();
+    const a = 1 - buffer.getUint8(0) / 255;
+    return new TinyColor({ r: buffer.getUint8(1), g: buffer.getUint8(2), b: buffer.getUint8(3), a });
   }
   async setColorEffect(value, effect = 0, speed = 31) {
-    try {
-      const color = new TinyColor(value);
-      const { r, g, b } = color.toRgb();
-      const a = color.getAlpha();
-      const w = (1 - a) * 255;
-      await this._effectCharacteristic.writeValue(new Uint8Array([
-        w,
-        r,
-        g,
-        b,
-        effect,
-        0,
-        speed,
-        0
-      ]));
-    } catch (ex) {
-      await this.connect(false);
-      this.setCandleEffectColor(value);
-    }
+    let color;
+    if (!value)
+      color = await this.getColor();
+    else
+      color = new TinyColor(value);
+    const { r, g, b } = color.toRgb();
+    const a = color.getAlpha();
+    const w = (1 - a) * 255;
+    await this.write(this._effectCharacteristic, new Uint8Array([
+      w,
+      r,
+      g,
+      b,
+      effect,
+      0,
+      speed,
+      0
+    ]), { color, effect, speed });
   }
   async setFlashingColor(value, speed = 31) {
     await this.setColorEffect(value, _Playbulb.FLASH, speed);
@@ -1463,7 +1471,7 @@ var _Epaper = class extends Device {
     return this;
   }
   async flush() {
-    return await this._writeCharacteristic.writeValue(new Uint8Array([1]));
+    await this.write(this._writeCharacteristic, new Uint8Array([1]));
   }
   async upload() {
     const payloads = this._core.generateUploadPlayloads();
@@ -1472,7 +1480,7 @@ var _Epaper = class extends Device {
     let offset = 0;
     for (let i = 0; i < payloads.length; i++) {
       const payload = payloads[i];
-      await this._writeCharacteristic.writeValue(payload);
+      await this.write(this._writeCharacteristic, payload);
       offset += mtu - header_size;
       if (typeof CustomEvent === "function") {
         const event = new CustomEvent("epaperprogress", {
@@ -1501,7 +1509,7 @@ var _Epaper = class extends Device {
     let notificationDefer = null;
     const notificationHandler = (event) => {
       const data = new Uint8Array(event.target.value.buffer);
-      if (data[0] === 2 && data[1] === 0 && data.length === mtu - header_size + 2) {
+      if (data[0] === 2 && data[1] === 0) {
         notificationDefer.resolve({ buffer: data.slice(2) });
       } else if (data[0] === 2 && data[1] === 1) {
         notificationDefer.reject(new Error("Read data failed."));
@@ -1513,7 +1521,7 @@ var _Epaper = class extends Device {
       int2Bytes(request, 1, offset, 4);
       request[5] = Math.min(mtu - header_size, EpaperCore.RAM_SIZE - offset) & 255;
       notificationDefer = new Defer();
-      await this._writeCharacteristic.writeValueWithResponse(request);
+      await this.write(this._writeCharacteristic, request);
       const response = await notificationDefer.promise;
       const trunk = response.buffer;
       frameBuffer.set(trunk, offset);
@@ -1648,6 +1656,7 @@ var Pixoo = class {
     this._updatePromise = null;
     this._updateDelay = 0;
     this._animationFrames = [];
+    this._emulate = false;
     if (typeof OffscreenCanvas === "function") {
       const pixoo = this;
       class PixooCanvas extends OffscreenCanvas {
@@ -1778,10 +1787,11 @@ var Pixoo = class {
     if (this._emulate) {
       return await Promise.resolve({ status: "OK" });
     }
+    const payload = new TimeboxEvoMessage(message).message;
     return await (await fetch(`${this._server}/send`, {
       method: "POST",
       body: JSON.stringify({
-        payload: message
+        payload
       })
     })).json();
   }
@@ -1799,8 +1809,7 @@ var Pixoo = class {
         `Brightness must be in percent between 0 and 100 (inclusive). The given value was ${brightness}`
       );
     }
-    const message = new TimeboxEvoMessage(`74${number2HexString(brightness)}`).message;
-    this.send(message);
+    this.send(`74${number2HexString(brightness)}`);
   }
   clear() {
     this.context.clearRect(0, 0, this.width, this.height);
@@ -1859,18 +1868,14 @@ var Pixoo = class {
       if (this.type === "max") {
         chunkHeader = int2hexlittle(totalSize) + "0000" + int2hexlittle(i);
       }
-      const payload = new TimeboxEvoMessage(`49${chunkHeader}${body}`);
-      chunks.push(payload.message);
+      chunks.push(`49${chunkHeader}${body}`);
     }
     return chunks;
   }
   getStaticImage(matrix) {
     const imageData = this.generateImageData(matrix);
     const header = "44000a0a04";
-    const payload = new TimeboxEvoMessage(
-      header + imageData
-    );
-    return payload.message;
+    return header + imageData;
   }
   encodeMatrixToFrame(matrix) {
     const palette = [];
@@ -2019,100 +2024,87 @@ var _TimeboxMini = class extends Device {
     return message;
   }
   async sendMessage(msg) {
-    for (let i = 0; i < msg.length; i += _TimeboxMini.MTU) {
-      await this._lightCharacteristic.writeValue(msg.slice(i, i + _TimeboxMini.MTU));
+    const command = this.encodeCommand(msg);
+    for (let i = 0; i < command.length; i += _TimeboxMini.MTU) {
+      await this.write(this._lightCharacteristic, command.slice(i, i + _TimeboxMini.MTU), { msg });
     }
   }
   async enterClockMode(color = "white", type = 0) {
     const { r, g, b } = new TinyColor(color).toRgb();
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        69,
-        0,
-        type,
-        r,
-        g,
-        b
-      ])
-    );
+    const msg = new Uint8Array([
+      69,
+      0,
+      type,
+      r,
+      g,
+      b
+    ]);
     await this.sendMessage(msg);
   }
   async enterDrawingMode() {
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        68,
-        0,
-        10,
-        10,
-        4
-      ])
-    );
+    const msg = new Uint8Array([
+      68,
+      0,
+      10,
+      10,
+      4
+    ]);
     await this.sendMessage(msg);
   }
   async enterTempMode(color = "white", type = 0) {
     const { r, g, b } = new TinyColor(color).toRgb();
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        69,
-        1,
-        type,
-        r,
-        g,
-        b
-      ])
-    );
+    const msg = new Uint8Array([
+      69,
+      1,
+      type,
+      r,
+      g,
+      b
+    ]);
     await this.sendMessage(msg);
   }
   async enterLightMode(color = "white", intensity = 100, mode = 0) {
     const { r, g, b } = new TinyColor(color).toRgb();
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        69,
-        2,
-        r,
-        g,
-        b,
-        intensity,
-        mode
-      ])
-    );
+    const msg = new Uint8Array([
+      69,
+      2,
+      r,
+      g,
+      b,
+      intensity,
+      mode
+    ]);
     await this.sendMessage(msg);
   }
   async enterAnimationMode(preset = 0) {
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        69,
-        3,
-        preset
-      ])
-    );
+    const msg = new Uint8Array([
+      69,
+      3,
+      preset
+    ]);
     await this.sendMessage(msg);
   }
   async setSoundMode(topColor = "red", activeColor = "white", preset = 0) {
     const { r: r1, g: g1, b: b1 } = new TinyColor(topColor).toRgb();
     const { r: r2, g: g2, b: b2 } = new TinyColor(activeColor).toRgb();
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        69,
-        4,
-        preset,
-        r1,
-        g1,
-        b1,
-        r2,
-        g2,
-        b2
-      ])
-    );
+    const msg = new Uint8Array([
+      69,
+      4,
+      preset,
+      r1,
+      g1,
+      b1,
+      r2,
+      g2,
+      b2
+    ]);
     await this.sendMessage(msg);
   }
   async enterImageMode() {
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        69,
-        5
-      ])
-    );
+    const msg = new Uint8Array([
+      69,
+      5
+    ]);
     await this.sendMessage(msg);
   }
   setPixel(color, x, y) {
@@ -2121,16 +2113,14 @@ var _TimeboxMini = class extends Device {
   async setPixels(color, positions) {
     const { r, g, b } = new TinyColor(color).toRgb();
     const p = positions.map(([x, y]) => y * this._width + x);
-    const msg = this.encodeCommand(
-      new Uint8Array([
-        88,
-        r,
-        g,
-        b,
-        p.length,
-        ...p
-      ])
-    );
+    const msg = new Uint8Array([
+      88,
+      r,
+      g,
+      b,
+      p.length,
+      ...p
+    ]);
     await this.sendMessage(msg);
   }
   encodeImage(image = this._canvas) {
@@ -2158,8 +2148,7 @@ var _TimeboxMini = class extends Device {
     const buffer = this.encodeImage(image);
     const payload = new Uint8Array(buffer.length + 5);
     payload.set([68, 0, 10, 10, 4, ...buffer]);
-    const msg = this.encodeCommand(payload);
-    await this.sendMessage(msg);
+    await this.sendMessage(payload);
   }
   clearAnimationFrames() {
     this._animationFrames.length = 0;
@@ -2173,8 +2162,7 @@ var _TimeboxMini = class extends Device {
       const { buffer, duration } = this._animationFrames[i];
       const payload = new Uint8Array(buffer.length + 8);
       payload.set([73, 0, 10, 10, 4, i, duration, ...buffer]);
-      const msg = this.encodeCommand(payload);
-      await this.sendMessage(msg);
+      await this.sendMessage(payload);
     }
   }
 };
@@ -2187,5 +2175,6 @@ export {
   PixooMax,
   Playbulb,
   TimeboxMini,
+  TinyColor,
   loadImage
 };

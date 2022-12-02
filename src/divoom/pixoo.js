@@ -12,6 +12,7 @@ export class Pixoo {
     this._updatePromise = null;
     this._updateDelay = 0;
     this._animationFrames = [];
+    this._emulate = false;
 
     if(typeof OffscreenCanvas === 'function') {
       const pixoo = this;
@@ -164,11 +165,13 @@ export class Pixoo {
       // eslint-disable-next-line no-return-await
       return await Promise.resolve({status: 'OK'});
     }
+    const payload = new TimeboxEvoMessage(message).message;
+
     // eslint-disable-next-line no-return-await
     return await (await fetch(`${this._server}/send`, {
       method: 'POST',
       body: JSON.stringify({
-        payload: message,
+        payload,
       }),
     })).json();
   }
@@ -189,8 +192,7 @@ export class Pixoo {
       );
     }
 
-    const message = new TimeboxEvoMessage(`74${number2HexString(brightness)}`).message;
-    this.send(message);
+    this.send(`74${number2HexString(brightness)}`);
   }
 
   clear() {
@@ -272,8 +274,7 @@ export class Pixoo {
         // eslint-disable-next-line prefer-template
         chunkHeader = int2hexlittle(totalSize) + '0000' + int2hexlittle(i);
       }
-      const payload = new TimeboxEvoMessage(`49${chunkHeader}${body}`);
-      chunks.push(payload.message);
+      chunks.push(`49${chunkHeader}${body}`);
     }
     return chunks;
   }
@@ -281,10 +282,7 @@ export class Pixoo {
   getStaticImage(matrix) {
     const imageData = this.generateImageData(matrix);
     const header = '44000a0a04';
-    const payload = new TimeboxEvoMessage(
-      header + imageData,
-    );
-    return payload.message;
+    return header + imageData;
   }
 
   encodeMatrixToFrame(matrix) {
