@@ -234,9 +234,9 @@
       <label id="bluetooth" title="蓝牙">ᛒ</label>
       <label for="colorPicker" title="颜色" type="color"><input type="color" id="colorPicker"></input>◉</label>
       <label id="modBlink" title="闪烁">✧</label>
-      <label id="modCandle" title="蜡烛">⏍</label>
       <label id="modPulse" title="脉搏">♥︎</label>
       <label id="modRainbow" title="彩虹">🌈</label>
+      <label id="buyDevice" title="购买设备">⏍</label>
     </div>
     <div class="switch">
       <div class="btn"></div>
@@ -283,8 +283,6 @@
         const type = this.type;
         if(type === 'blink') {
           this._blink(t, sColor);
-        } else if(type === 'candling') {
-          this._candling(t, sColor);
         } else if(type === 'pulse') {
           this._pulse(t, sColor);
         } else if(type === 'rainbow') {
@@ -294,15 +292,6 @@
 
       _blink(t, sColor) {
         const color = t % 580 < 290 ? sColor : '#222';
-        setBulbColor(color);
-      }
-      
-      _candling(t, sColor) {
-        let color = sColor;
-        const r = Math.random();
-        if(r < 0.01) color = '#333';
-        else if(r < 0.02) color = '#444';
-        else if(r < 0.03) color = '#555';
         setBulbColor(color);
       }
 
@@ -340,9 +329,6 @@
         if(type === 'mode-blink') {
           bulbEffect.start('blink');
           await device.setFlashingColor(getBlubColor());
-        } else if(type === 'mode-candling') {
-          bulbEffect.start('candling');
-          await device.setCandlingColor(getBlubColor());
         } else if(type === 'mode-pulsing') {
           bulbEffect.start('pulse');
           await device.setPulsingColor(getBlubColor());
@@ -377,14 +363,14 @@
     modBlink.onclick = function() {
       applyEffect('mode-blink');
     }
-    modCandle.onclick = function() {
-      applyEffect('mode-candling');
-    }
     modPulse.onclick = function() {
       applyEffect('mode-pulsing');
     }
     modRainbow.onclick = function() {
       applyEffect('mode-rainbow');
+    }
+    buyDevice.onclick = function() {
+      window.open('https://www.mipow.com/products/playbulb-candle');
     }
   </script>
 </body>

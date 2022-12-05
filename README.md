@@ -57,3 +57,10 @@ ctx.fillRect(8, 8, 24, 24);
 ```
 
 在线示例：[Pixoo-Doodle @码上掘金](https://code.juejin.cn/pen/7169424670876237839)
+
+## 详细文档
+
+- [Playbulb](docs/playbulb-light.md)
+- [Epaper](docs/epaper.md)
+- [Timebox](docs/timebox.md)
+- [Pixoo](docs/pixoo.md)
