@@ -23,8 +23,8 @@ class Playbulb extends Device {
     super({filters, optionalServices});
   }
 
-  async connect(rebound = true) {
-    await super.connect(rebound);
+  async connect() {
+    await super.connect();
     const service = (await this.server.getPrimaryServices())[0];
     this._lightCharacteristic = await service.getCharacteristic(COLOR_UUID);
     this._effectCharacteristic = await service.getCharacteristic(COLOR_EFFECT_UUID);
