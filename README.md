@@ -11,6 +11,7 @@
 -   [x] [Divoom-Timebox-Mini](https://www.divoom-gz.com/product/timebox-mini.html) | **GATT ✔︎** | **SPP x**
 -   [x] [Pixoo 16x16](https://divoom.com/products/divoom-pixoo) | **GATT x** | **SPP ✔︎**
 -   [x] [Pixoo-Max](https://divoom.com/products/divoom-pixoo-max) | **GATT x** | **SPP ✔︎**
+-   [x] [Ditoo-Plus](https://divoom.com/products/divoom-ditooplus) | **GATT x** | **SPP ✔︎**
 
 逐步添加中...
 

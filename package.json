@@ -1,6 +1,6 @@
 {
   "name": "jcode-bluetooth",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "jcode web bluetooth lib",
   "main": "dist/jcode-bluetooth.js",
   "type": "module",
