@@ -8,6 +8,7 @@ const options = {
 
 if(process.env.mode === 'production') {
   esbuild.buildSync({minify: false, ...options});
+  esbuild.buildSync({minify: true, ...options, entryPoints: ['src/iife.js'], format: 'iife', outfile: 'dist/jcode-bluetooth.min.js'});
 } else {
   esbuild.serve({
     servedir: 'examples',

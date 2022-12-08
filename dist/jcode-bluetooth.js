@@ -963,8 +963,8 @@ var _Playbulb = class extends Device {
   } = {}) {
     super({ filters, optionalServices });
   }
-  async connect(rebound = true) {
-    await super.connect(rebound);
+  async connect() {
+    await super.connect();
     const service = (await this.server.getPrimaryServices())[0];
     this._lightCharacteristic = await service.getCharacteristic(COLOR_UUID);
     this._effectCharacteristic = await service.getCharacteristic(COLOR_EFFECT_UUID);
@@ -2168,8 +2168,17 @@ var _TimeboxMini = class extends Device {
 };
 var TimeboxMini = _TimeboxMini;
 __publicField(TimeboxMini, "MTU", 127);
+
+// src/divoom/ditoo-plus.js
+var DitooPlus = class extends Pixoo {
+  constructor({ server = "//localhost:9527", width = 16, height = 16 } = {}) {
+    super({ server, width, height });
+    this.type = "max";
+  }
+};
 export {
   Device,
+  DitooPlus,
   Epaper,
   Pixoo,
   PixooMax,
