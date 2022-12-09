@@ -69,7 +69,7 @@ export class Bluetooth {
         if(error) {
           connection.close(); // 重新连接
           this._connection = null;
-          this.tryConnect(1000).then((conn) => {
+          this.connect(1000).then((conn) => {
             console.log('reconnected!');
             this._connection = conn;
             if(this._tempBuffer) {

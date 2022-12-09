@@ -27,36 +27,19 @@ export class Pixoo {
 
         getContext(type, args = {}) {
           if(args.willReadFrequently !== false) args.willReadFrequently = true;
+          // if(args.alpha !== true) args.alpha = false;
           if(type === '2d') {
             if(this._ctx) return this._ctx;
             this._ctx = super.getContext(type, args);
-            const {fill, stroke, fillRect, drawImage, clearRect} = this._ctx;
-            this._ctx.fill = (...rest) => {
-              const ret = fill.apply(this._ctx, rest);
-              pixoo.forceUpdate();
-              return ret;
-            };
-            this._ctx.stroke = (...rest) => {
-              const ret = stroke.apply(this._ctx, rest);
-              pixoo.forceUpdate();
-              return ret;
-            };
-            this._ctx.fillRect = (...rest) => {
-              const ret = fillRect.apply(this._ctx, rest);
-              pixoo.forceUpdate();
-              return ret;
-            };
-            this._ctx.drawImage = (...rest) => {
-              const ret = drawImage.apply(this._ctx, rest);
-              pixoo.forceUpdate();
-              return ret;
-            };
+            const {fill, stroke, fillRect, strokeRect, fillText, strokeText, drawImage, clearRect} = this._ctx;
+            [fill, stroke, fillRect, strokeRect, fillText, strokeText, drawImage, clearRect].forEach((fn) => {
+              this._ctx[fn.name] = (...rest) => {
+                const ret = fn.apply(this._ctx, rest);
+                pixoo.forceUpdate();
+                return ret;
+              };
+            });
             this._ctx._drawImage = drawImage;
-            this._ctx.clearRect = (...rest) => {
-              const ret = clearRect.apply(this._ctx, rest);
-              pixoo.forceUpdate();
-              return ret;
-            };
             return this._ctx;
           }
           throw new Error(`Only 2d context is supported, not ${type}`);
@@ -113,6 +96,32 @@ export class Pixoo {
       });
     }
     return this._updatePromise;
+  }
+
+  binarize({context = this.context, threadhold = 16, backgroundColor = 'black', foregroundColor} = {}) {
+    foregroundColor = foregroundColor || context.fillStyle;
+    if(typeof CanvasGradient === 'function' && foregroundColor instanceof CanvasGradient) {
+      return;
+    }
+    const {width, height} = context.canvas;
+    const imageData = context.getImageData(0, 0, width, height);
+    const {data} = imageData;
+    const foreground = new TinyColor(foregroundColor).toRgb();
+    const background = new TinyColor(backgroundColor).toRgb();
+    for(let i = 0; i < data.length; i += 4) {
+      const brightness = (0.2126 * data[i]) + (0.7152 * data[i + 1]) + (0.0722 * data[i + 2]);
+      if(brightness > threadhold) {
+        data[i] = foreground.r;
+        data[i + 1] = foreground.g;
+        data[i + 2] = foreground.b;
+      } else {
+        data[i] = background.r;
+        data[i + 1] = background.g;
+        data[i + 2] = background.b;
+      }
+      data[i + 3] = 255;
+    }
+    context.putImageData(imageData, 0, 0);
   }
 
   async update() {

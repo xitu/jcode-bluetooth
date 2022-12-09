@@ -8,27 +8,39 @@
 </head>
 <body>
   <script type="module">
-    import {Pixoo, PixooMax} from './jcode-bluetooth.js';
-    const p = new Pixoo();
-    const ctx = p.canvas.getContext('2d');
-    console.log(ctx);
-    ctx.fillStyle = 'green';
-    ctx.fillRect(0, 0, 16, 16);
-    // const img = new Image();
-    // img.crossOrigin = 'anonymous';
-    // // img.src = "https://p5.ssl.qhimg.com/t0187235e0667c1e40b.png";
-    // // img.src = "https://img01.yzcdn.cn/upload_files/2022/10/17/FglpcdN7fvyJr428kfyeODMKXf7Q.jpg!middle.jpg";
-    // // 0, 0 // 2 64 // 2 126
-    // img.src = "https://p.ssl.qhimg.com/d/inn/c886d09f/birds.png";
-    // img.onload = function() {
-    //   const pos = [[0, 0], [2, 64], [2, 126]];
-    //   let idx = 0;
-    //   setInterval(() => {
-    //     ctx.clearRect(0, 0, 32, 32);
-    //     ctx.drawImage(img, pos[idx][0], pos[idx][1], 86, 60, 5, 10, 20, 13);
-    //     idx = (idx + 1) % pos.length;
-    //   }, 100);
-    // }
+    import {DitooPlus} from './jcode-bluetooth.js';
+
+    const ditoo = new DitooPlus();
+    // ditoo.context.fillStyle = '#ffff00cc';
+    // ditoo.context.fillRect(0, 0, 16, 16);
+
+    // const ctx = ditoo.context;
+    // ctx.clearRect(0,0,16,16);
+    // ctx.fillStyle = 'green';
+    // ctx.font = '100 16px  Arial,sans-serif';
+    // ctx.fillText('掘', 0, 15);
+    // ditoo.binarize();
+
+    const ctx = new OffscreenCanvas(16, 16).getContext('2d');
+
+    ctx.font = '100 16px  Arial,sans-serif';
+    const colors = 'red green blue yellow'.split(' ');
+
+    [..."码上掘金"].forEach((text, i) => {
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.clearRect(0,0,16,16);
+      ctx.save();
+      // ctx.translate(8, 0);
+      // ctx.scale(-1, 1);
+      // ctx.translate(-8, 0);
+      ctx.fillText(text, 0, 15);
+      ctx.restore();
+      ditoo.binarize({context: ctx})
+      ditoo.appendAnimationFrame(ctx.canvas, 1000);
+    });
+
+    ditoo.playAnimation();
+    console.log(ditoo);
   </script>
 </body>
 </html>
