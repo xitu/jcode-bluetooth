@@ -1944,8 +1944,8 @@ var Pixoo = class {
 
 // src/divoom/pixoo-max.js
 var PixooMax = class extends Pixoo {
-  constructor({ server = "//localhost:9527", width = 32, height = 32 } = {}) {
-    super({ server, width, height });
+  constructor({ width = 32, height = 32 } = {}) {
+    super({ width, height });
     this.type = "max";
   }
 };
@@ -2171,8 +2171,8 @@ __publicField(TimeboxMini, "MTU", 127);
 
 // src/divoom/ditoo-plus.js
 var DitooPlus = class extends Pixoo {
-  constructor({ server = "//localhost:9527", width = 16, height = 16 } = {}) {
-    super({ server, width, height });
+  constructor({ width = 16, height = 16 } = {}) {
+    super({ width, height });
     this.type = "max";
   }
 };
