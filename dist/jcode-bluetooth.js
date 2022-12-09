@@ -2173,7 +2173,6 @@ __publicField(TimeboxMini, "MTU", 127);
 var DitooPlus = class extends Pixoo {
   constructor({ width = 16, height = 16 } = {}) {
     super({ width, height });
-    this.type = "max";
   }
 };
 export {
