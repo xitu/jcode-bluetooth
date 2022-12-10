@@ -2182,7 +2182,22 @@ var DitooPlus = class extends Pixoo {
     super({ width, height });
   }
 };
+
+// src/divoom/backpack.js
+var Backpack = class extends Pixoo {
+  constructor({ width = 16, height = 16 } = {}) {
+    super({ width, height });
+  }
+};
+
+// src/divoom/zooe.js
+var Zooe = class extends Pixoo {
+  constructor({ width = 16, height = 16 } = {}) {
+    super({ width, height });
+  }
+};
 export {
+  Backpack,
   Device,
   DitooPlus,
   Epaper,
@@ -2191,5 +2206,6 @@ export {
   Playbulb,
   TimeboxMini,
   TinyColor,
+  Zooe,
   loadImage
 };

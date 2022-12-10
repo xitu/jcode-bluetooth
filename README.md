@@ -12,6 +12,8 @@
 -   [x] [Pixoo 16x16](https://divoom.com/products/divoom-pixoo) | **GATT x** | **SPP ✔︎**
 -   [x] [Pixoo-Max](https://divoom.com/products/divoom-pixoo-max) | **GATT x** | **SPP ✔︎**
 -   [x] [Ditoo-Plus](https://divoom.com/products/divoom-ditooplus) | **GATT x** | **SPP ✔︎**
+-   [x] [Divoom Backpack](https://divoom.com/products/divoom-backpack) | **GATT x** | **SPP ✔︎**
+-   [x] [Divoom Zooe](https://divoom.com/products/zooe) | **GATT x** | **SPP ✔︎**
 
 逐步添加中...
 
