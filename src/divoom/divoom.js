@@ -31,8 +31,8 @@ export class Divoom {
     Sleeping: 4,
   }
 
-  constructor({server = 'http://localhost:9527', width = 16, height = 16} = {}) {
-    this._server = server;
+  constructor({host = 'http://localhost:9527', width = 16, height = 16} = {}) {
+    this._host = host;
     this._matrix = new Matrix(width, height);
     this._canvas = null;
     this._updatePromise = null;
@@ -203,7 +203,7 @@ export class Divoom {
     const payload = new TimeboxEvoMessage(message).message;
 
     // eslint-disable-next-line no-return-await
-    return await (await fetch(`${this._server}/send`, {
+    return await (await fetch(`${this._host}/send`, {
       method: 'POST',
       body: JSON.stringify({
         payload,
