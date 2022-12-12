@@ -1565,6 +1565,12 @@ function number2HexString(int) {
   }
   return Math.round(int).toString(16).padStart(2, "0");
 }
+function boolean2HexString(bool) {
+  return bool ? "01" : "00";
+}
+function color2HexString(color) {
+  return new TinyColor(color).toHex();
+}
 function loadImage(src) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -1647,8 +1653,8 @@ var Matrix = class extends PixelData {
   }
 };
 
-// src/divoom/pixoo.js
-var Pixoo = class {
+// src/divoom/divoom.js
+var _Divoom = class {
   constructor({ server = "http://localhost:9527", width = 16, height = 16 } = {}) {
     this._server = server;
     this._matrix = new Matrix(width, height);
@@ -1658,8 +1664,8 @@ var Pixoo = class {
     this._animationFrames = [];
     this._emulate = false;
     if (typeof OffscreenCanvas === "function") {
-      const pixoo = this;
-      class PixooCanvas extends OffscreenCanvas {
+      const self = this;
+      class DivoomCanvas extends OffscreenCanvas {
         get width() {
           return super.width;
         }
@@ -1677,7 +1683,7 @@ var Pixoo = class {
             [fill, stroke, fillRect, strokeRect, fillText, strokeText, drawImage, clearRect].forEach((fn) => {
               this._ctx[fn.name] = (...rest) => {
                 const ret = fn.apply(this._ctx, rest);
-                pixoo.forceUpdate();
+                self.forceUpdate();
                 return ret;
               };
             });
@@ -1687,7 +1693,7 @@ var Pixoo = class {
           throw new Error(`Only 2d context is supported, not ${type}`);
         }
       }
-      this._canvas = new PixooCanvas(width, height);
+      this._canvas = new DivoomCanvas(width, height);
     }
   }
   get width() {
@@ -1761,7 +1767,7 @@ var Pixoo = class {
     const message = this.getStaticImage(matrix);
     await this.send(message);
     if (typeof CustomEvent === "function") {
-      const e = new CustomEvent("pixooupdate", { detail: { device: this } });
+      const e = new CustomEvent("devicestatechange", { detail: { device: this } });
       window.dispatchEvent(e);
     }
   }
@@ -1810,13 +1816,67 @@ var Pixoo = class {
       return false;
     }
   }
-  setBrightness(brightness) {
+  async setBrightness(brightness) {
     if (brightness < 0 || brightness > 100) {
       throw Error(
         `Brightness must be in percent between 0 and 100 (inclusive). The given value was ${brightness}`
       );
     }
-    this.send(`74${number2HexString(brightness)}`);
+    await this.send(`74${number2HexString(brightness)}`);
+  }
+  async setDatetime(date = new Date()) {
+    const fullYearStr = date.getFullYear().toString().padStart(4, "0");
+    const timeCommand = `18${number2HexString(Number(fullYearStr.slice(2))) + number2HexString(Number(fullYearStr.slice(0, 2))) + number2HexString(date.getMonth() + 1) + number2HexString(date.getDate()) + number2HexString(date.getHours()) + number2HexString(date.getMinutes()) + number2HexString(date.getSeconds())}00`;
+    await this.send(timeCommand);
+  }
+  async setTemperatureAndWeather({ temperature = 0, weather = _Divoom.WeatherType.Clear } = {}) {
+    const tempStr = number2HexString(temperature);
+    const weatherStr = number2HexString(weather);
+    await this.send(`5F${tempStr}${weatherStr}`);
+  }
+  async enterClockMode({
+    type = _Divoom.ClockType.FullScreen,
+    showTime = true,
+    showWeather = true,
+    showTemp = true,
+    showCalendar = true,
+    color = "white"
+  } = {}) {
+    const prefix = "450001";
+    const clockTypeStr = number2HexString(type);
+    const panelStr = [showTime, showWeather, showTemp, showCalendar].map(boolean2HexString).join("");
+    const colorStr = color2HexString(color);
+    await this.send(`${prefix}${clockTypeStr}${panelStr}${colorStr}`);
+  }
+  async enterLightningMode({
+    color = "white",
+    brightness = 50,
+    type = _Divoom.LightningType.Love
+  } = {}) {
+    const prefix = "4501";
+    const suffix = "01000000";
+    const colorStr = color2HexString(color);
+    const brightnessStr = number2HexString(brightness);
+    const typeStr = number2HexString(type);
+    await this.send(`${prefix}${colorStr}${brightnessStr}${typeStr}${suffix}`);
+  }
+  async enterCloudMode() {
+    await this.send("4502");
+  }
+  async setVJEffect(type = 0) {
+    await this.send(`4503${number2HexString(type)}`);
+  }
+  async playMusicEQ(type = 0) {
+    await this.send(`4504${number2HexString(type)}`);
+  }
+  async enterCustomMode() {
+    await this.send("4505");
+  }
+  async showScoreBoard(player1 = 0, player2 = 0) {
+    const prefix = "450600";
+    const player1Str = int2hexlittle(player1);
+    const player2Str = int2hexlittle(player2);
+    await this.send(`${prefix}${player1Str}${player2Str}`);
   }
   clear() {
     this.context.clearRect(0, 0, this.width, this.height);
@@ -1948,9 +2008,40 @@ var Pixoo = class {
     };
   }
 };
+var Divoom = _Divoom;
+__publicField(Divoom, "WeatherType", {
+  Sunny: 1,
+  Cloudy: 3,
+  Stormy: 5,
+  Rainy: 6,
+  Snowy: 8,
+  Foggy: 9
+});
+__publicField(Divoom, "ClockType", {
+  FullScreen: 0,
+  Rainbow: 1,
+  WithBox: 2,
+  AnalogSquare: 3,
+  FullScreenNegative: 4,
+  AnalogRound: 5
+});
+__publicField(Divoom, "LightningType", {
+  PlainColor: 0,
+  Love: 1,
+  Plants: 2,
+  NoMosquitto: 3,
+  Sleeping: 4
+});
+
+// src/divoom/pixoo.js
+var Pixoo = class extends Divoom {
+  constructor({ width = 16, height = 16 } = {}) {
+    super({ width, height });
+  }
+};
 
 // src/divoom/pixoo-max.js
-var PixooMax = class extends Pixoo {
+var PixooMax = class extends Divoom {
   constructor({ width = 32, height = 32 } = {}) {
     super({ width, height });
     this.type = "max";
@@ -2177,21 +2268,21 @@ var TimeboxMini = _TimeboxMini;
 __publicField(TimeboxMini, "MTU", 127);
 
 // src/divoom/ditoo-plus.js
-var DitooPlus = class extends Pixoo {
+var DitooPlus = class extends Divoom {
   constructor({ width = 16, height = 16 } = {}) {
     super({ width, height });
   }
 };
 
 // src/divoom/backpack.js
-var Backpack = class extends Pixoo {
+var Backpack = class extends Divoom {
   constructor({ width = 16, height = 16 } = {}) {
     super({ width, height });
   }
 };
 
 // src/divoom/zooe.js
-var Zooe = class extends Pixoo {
+var Zooe = class extends Divoom {
   constructor({ width = 16, height = 16 } = {}) {
     super({ width, height });
   }

@@ -1,6 +1,6 @@
-import {Pixoo} from './pixoo';
+import {Divoom} from './divoom';
 
-class PixooMax extends Pixoo {
+class PixooMax extends Divoom {
   constructor({width = 32, height = 32} = {}) {
     super({width, height});
     this.type = 'max';

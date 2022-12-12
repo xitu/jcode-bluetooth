@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script type="module">
+    import {PixooMax} from './jcode-bluetooth.js';
+
+    const device = new PixooMax();
+    const date = new Date('2022 03 04 18:00');
+    await device.enterClockMode({type: 1});
+    await device.setDatetime();
+    await device.setTemperatureAndWeather({weather: PixooMax.WeatherType.Sunny});
+    window.device = device;
+  </script>
+</body>
+</html>
