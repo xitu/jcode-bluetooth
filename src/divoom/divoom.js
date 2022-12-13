@@ -155,15 +155,6 @@ export class Divoom {
 
     const message = this.getStaticImage(matrix);
     await this.send(message);
-
-    // const animData = this.getAnimationData([matrix]);
-    // const message = animData.join('');
-    // console.log(animData.length, message.length);
-    // await this.send(message);
-    if(typeof CustomEvent === 'function') {
-      const e = new CustomEvent('devicestatechange', {detail: {device: this}});
-      window.dispatchEvent(e);
-    }
   }
 
   async playAnimation(frames = this._animationFrames) {
@@ -196,19 +187,27 @@ export class Divoom {
   }
 
   async send(message) {
-    if(this._emulate) {
-      // eslint-disable-next-line no-return-await
-      return await Promise.resolve({status: 'OK'});
-    }
-    const payload = new TimeboxEvoMessage(message).message;
+    let ret;
 
-    // eslint-disable-next-line no-return-await
-    return await (await fetch(`${this._host}/send`, {
-      method: 'POST',
-      body: JSON.stringify({
-        payload,
-      }),
-    })).json();
+    if(this._emulate) {
+      ret = await Promise.resolve({status: 'OK', emulate: true});
+    } else {
+      const payload = new TimeboxEvoMessage(message).message;
+
+      ret = await (await fetch(`${this._host}/send`, {
+        method: 'POST',
+        body: JSON.stringify({
+          payload,
+        }),
+      })).json();
+    }
+
+    if(typeof CustomEvent === 'function') {
+      const e = new CustomEvent('devicestatechange', {detail: {device: this, data: ret}});
+      window.dispatchEvent(e);
+    }
+
+    return ret;
   }
 
   async isConnected() {
