@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script type="module">
+    import {Zooe, loadImage} from './jcode-bluetooth.js';
+    const url = 'https://p2.ssl.qhimg.com/t017f6883a6380b105b.png';
+
+    const ditoo = new Zooe();
+    const img = await loadImage(url);
+
+    // const ctx = ditoo.context;
+    const ctx = new OffscreenCanvas(ditoo.width, ditoo.height).getContext('2d');
+
+    function drawPig(ctx, offsetX) {
+      ctx.clearRect(0, 0, ditoo.width, ditoo.height);
+      ctx.drawImage(img, 3, 5, ditoo.width - 6, ditoo.height - 6);
+      ctx.fillStyle = 'white';
+      ctx.fillRect(3 + offsetX, 3, 1, 1);
+      ctx.fillRect(12 - offsetX, 3, 1, 1);
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    for(let i = 0; i < 3; i++) {
+      drawPig(ctx, i);
+      ditoo.appendAnimationFrame(ctx.canvas, 200);
+    }
+
+    ditoo.playAnimation();
+  </script>
+</body>
+</html>

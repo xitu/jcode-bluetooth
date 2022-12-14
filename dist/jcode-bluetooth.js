@@ -1770,7 +1770,9 @@ var _Divoom = class {
   }
   async playAnimation(frames = this._animationFrames) {
     const messages = this.getAnimationData(frames);
-    await this.send(messages.join(""));
+    for (let i = 0; i < messages.length; i++) {
+      await this.send(messages[i]);
+    }
   }
   clearAnimationFrames() {
     this._animationFrames.length = 0;

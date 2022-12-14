@@ -160,7 +160,10 @@ export class Divoom {
 
   async playAnimation(frames = this._animationFrames) {
     const messages = this.getAnimationData(frames);
-    await this.send(messages.join(''));
+    for(let i = 0; i < messages.length; i++) {
+      // eslint-disable-next-line no-await-in-loop
+      await this.send(messages[i]);
+    }
   }
 
   clearAnimationFrames() {

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script type="module">
+    import {Zooe, loadImage} from './jcode-bluetooth.js';
+    const url = 'https://p2.ssl.qhimg.com/t017f6883a6380b105b.png';
+
+    const ditoo = new Zooe();
+    const img = await loadImage(url);
+    ditoo.context.drawImage(img, 3, 5, ditoo.width - 6, ditoo.height - 6);
+    ditoo.setPixel('white', 3, 3);
+    ditoo.setPixel('white', 12, 3);
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    let offsetX = 1;
+    while(1) {
+      await sleep(200);
+      ditoo.clear();
+      ditoo.context.drawImage(img, 3, 5, ditoo.width - 6, ditoo.height - 6);
+      ditoo.setPixel('white', 2 + offsetX, 3);
+      ditoo.setPixel('white', 13 - offsetX, 3);
+      offsetX = (offsetX + 1) % 3;
+    }
+  </script>
+</body>
+</html>
