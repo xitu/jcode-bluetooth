@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script type="module">
+    import {Pixoo, TinyColor} from './jcode-bluetooth.js';
+    const device = new Pixoo();
+
+    function init() {
+      for(let i = 0; i < device.width; i++) {
+        for(let j = 0; j < device.width; j++) {
+          const color = Math.random() < 0.4 ? 'green' : 'red';
+          device.setColor(color, i, j);
+        }
+      }
+    }
+
+    function evolution() {
+      const next = [];
+      for(let i = 0; i < device.width; i++) {
+        next[i] = [];
+        for(let j = 0; j < device.width; j++) {
+          const neighbors = [
+            device.getColor(i - 1, j - 1, true),
+            device.getColor(i - 1, j, true),
+            device.getColor(i - 1, j + 1, true),
+            device.getColor(i, j - 1, true),
+            device.getColor(i, j + 1, true),
+            device.getColor(i + 1, j - 1, true),
+            device.getColor(i + 1, j, true),
+            device.getColor(i + 1, j + 1, true),
+          ];
+
+          const life = neighbors.filter(color => color.equals('green')).length;
+          // const space = neighbors.filter(color => color.equals('red')).length;
+          if(!device.getColor(i, j).equals('red')) { // life
+            if(life === 2 || life === 3) {
+              next[i][j] = 'green';
+            } else {
+              next[i][j] = 'red';
+            }
+          } else { // space
+            if(life === 3) {
+              next[i][j] = 'green';
+            } else if(life === 2 && Math.random() < 0.2) {
+              next[i][j] = 'blue';
+            } else {
+              next[i][j] = 'red';
+            }
+          }
+        }
+      }
+      for(let i = 0; i < device.width; i++) {
+        for(let j = 0; j < device.width; j++) {
+          device.setColor(next[i][j], i, j);
+        }
+      }
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function main() {
+      init();
+
+      const canvas = device.getVisualCanvas();
+      document.body.appendChild(canvas);
+
+      while(1) {
+        device.updateVisualCanvas();
+        await sleep(100);
+        evolution();
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>

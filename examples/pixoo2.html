@@ -22,9 +22,9 @@
     const isConnected = await p.isConnected();
     console.log(isConnected);
     p.clear();
-    p.setColor(1, 1, 'red');
-    p.setColor(1, 2, 'green');
-    p.setColor(1, 3, 'blue');
+    p.setColor('red', 1, 1);
+    p.setColor('green', 1, 2);
+    p.setColor('blue', 1, 3);
     for(let i = 0; i < 31; i++) {
       for(let j = 0; j < 31; j++) {
         ctx.fillStyle = `rgb(${i * 8}, ${j * 8}, 0)`;

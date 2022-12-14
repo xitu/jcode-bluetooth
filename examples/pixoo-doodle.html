@@ -79,7 +79,7 @@
       if(avaliable) {
         const {x, y} = evt.target.dataset;
         evt.target.style.backgroundColor = pen;
-        pixoo.setPixel(Number(x), Number(y), pen);
+        pixoo.setPixel(pen, Number(x), Number(y));
       }
     });
     matrix.addEventListener('pointermove', (evt) => {
@@ -87,7 +87,7 @@
       if(avaliable) {
         const {x, y} = evt.target.dataset;
         evt.target.style.backgroundColor = pen;
-        pixoo.setPixel(Number(x), Number(y), pen);
+        pixoo.setPixel(pen, Number(x), Number(y));
       }
     });
   </script>

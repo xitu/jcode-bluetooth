@@ -1655,14 +1655,15 @@ var Matrix = class extends PixelData {
 
 // src/divoom/divoom.js
 var _Divoom = class {
-  constructor({ server = "http://localhost:9527", width = 16, height = 16 } = {}) {
-    this._server = server;
+  constructor({ host = "http://localhost:9527", width = 16, height = 16 } = {}) {
+    this._host = host;
     this._matrix = new Matrix(width, height);
     this._canvas = null;
     this._updatePromise = null;
     this._updateDelay = 0;
     this._animationFrames = [];
     this._emulate = false;
+    this._visualCanvas = null;
     if (typeof OffscreenCanvas === "function") {
       const self = this;
       class DivoomCanvas extends OffscreenCanvas {
@@ -1766,10 +1767,6 @@ var _Divoom = class {
     const matrix = this.transferCanvasData();
     const message = this.getStaticImage(matrix);
     await this.send(message);
-    if (typeof CustomEvent === "function") {
-      const e = new CustomEvent("devicestatechange", { detail: { device: this } });
-      window.dispatchEvent(e);
-    }
   }
   async playAnimation(frames = this._animationFrames) {
     const messages = this.getAnimationData(frames);
@@ -1797,16 +1794,23 @@ var _Divoom = class {
     this._emulate = value;
   }
   async send(message) {
+    let ret;
     if (this._emulate) {
-      return await Promise.resolve({ status: "OK" });
+      ret = await Promise.resolve({ status: "OK", emulate: true });
+    } else {
+      const payload = new TimeboxEvoMessage(message).message;
+      ret = await (await fetch(`${this._host}/send`, {
+        method: "POST",
+        body: JSON.stringify({
+          payload
+        })
+      })).json();
     }
-    const payload = new TimeboxEvoMessage(message).message;
-    return await (await fetch(`${this._server}/send`, {
-      method: "POST",
-      body: JSON.stringify({
-        payload
-      })
-    })).json();
+    if (typeof CustomEvent === "function") {
+      const e = new CustomEvent("devicestatechange", { detail: { device: this, data: ret } });
+      window.dispatchEvent(e);
+    }
+    return ret;
   }
   async isConnected() {
     try {
@@ -1881,24 +1885,65 @@ var _Divoom = class {
   clear() {
     this.context.clearRect(0, 0, this.width, this.height);
   }
-  setColor(x, y, color) {
-    this.matrix.assertBounds(x, y);
+  setColor(color, x, y) {
     const { r, g, b } = new TinyColor(color);
     const originColor = this.getColor(x, y);
     if (r !== originColor.r || g !== originColor.g || b !== originColor.b) {
       this.context.fillStyle = color;
       this.context.fillRect(x, y, 1, 1);
+      this.matrix.set(x, y, [r, g, b]);
     }
   }
-  setPixel(x, y, color) {
-    this.setColor(x, y, color);
+  setPixel(color, x, y) {
+    this.setColor(color, x, y);
   }
-  getColor(x, y) {
+  setPixels(color, positions) {
+    this.context.fillStyle = color;
+    for (let i = 0; i < positions.length; i++) {
+      const [x, y] = positions[i];
+      const { r, g, b } = new TinyColor(color);
+      const originColor = this.getColor(x, y);
+      if (r !== originColor.r || g !== originColor.g || b !== originColor.b) {
+        this.context.rect(x, y, 1, 1);
+        this.matrix.set(x, y, [r, g, b]);
+      }
+    }
+    this.context.fill();
+  }
+  getColor(x, y, repeat = false) {
+    if (repeat) {
+      x = (x + this.width) % this.width;
+      y = (y + this.height) % this.height;
+    }
     const [r, g, b] = this.matrix.get(x, y);
     return new TinyColor({ r, g, b });
   }
   getPixel(x, y) {
     return this.getColor(x, y);
+  }
+  updateVisualCanvas() {
+    const ctx = this._visualContext;
+    const pointWidth = this._visualCanvas.width / this.width;
+    const pointHeight = this._visualCanvas.height / this.height;
+    const matrix = this.matrix;
+    this.transferCanvasData();
+    matrix.traverseByRowAndColumn((x, y) => {
+      const [r, g, b] = matrix.get(x, y);
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.fillRect(x * pointWidth + 1, y * pointHeight + 1, pointWidth - 2, pointHeight - 2);
+    });
+  }
+  getVisualCanvas({ width = 320, height = 320 } = {}) {
+    if (width % this.width || height % this.height) {
+      throw Error("Size must be a multiple of the matrix size");
+    }
+    if (!this._visualCanvas) {
+      this._visualCanvas = document.createElement("canvas");
+      this._visualCanvas.width = width;
+      this._visualCanvas.height = height;
+      this._visualContext = this._visualCanvas.getContext("2d");
+    }
+    return this._visualCanvas;
   }
   generateImageData(matrix, delay = 0) {
     const frameTimeString = int2hexlittle(delay);

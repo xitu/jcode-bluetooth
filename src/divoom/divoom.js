@@ -39,6 +39,7 @@ export class Divoom {
     this._updateDelay = 0;
     this._animationFrames = [];
     this._emulate = false;
+    this._visualCanvas = null;
 
     if(typeof OffscreenCanvas === 'function') {
       const self = this;
@@ -304,27 +305,74 @@ export class Divoom {
     this.context.clearRect(0, 0, this.width, this.height);
   }
 
-  setColor(x, y, color) {
-    this.matrix.assertBounds(x, y);
+  setColor(color, x, y) {
     const {r, g, b} = new TinyColor(color);
     const originColor = this.getColor(x, y);
     if(r !== originColor.r || g !== originColor.g || b !== originColor.b) {
       this.context.fillStyle = color;
       this.context.fillRect(x, y, 1, 1);
+      this.matrix.set(x, y, [r, g, b]);
     }
   }
 
-  setPixel(x, y, color) {
-    this.setColor(x, y, color);
+  setPixel(color, x, y) {
+    this.setColor(color, x, y);
   }
 
-  getColor(x, y) {
+  setPixels(color, positions) {
+    this.context.fillStyle = color;
+    for(let i = 0; i < positions.length; i++) {
+      const [x, y] = positions[i];
+      const {r, g, b} = new TinyColor(color);
+      const originColor = this.getColor(x, y);
+      if(r !== originColor.r || g !== originColor.g || b !== originColor.b) {
+        this.context.rect(x, y, 1, 1);
+        this.matrix.set(x, y, [r, g, b]);
+      }
+    }
+    this.context.fill();
+  }
+
+  getColor(x, y, repeat = false) {
+    if(repeat) {
+      x = (x + this.width) % this.width;
+      y = (y + this.height) % this.height;
+    }
     const [r, g, b] = this.matrix.get(x, y);
     return new TinyColor({r, g, b});
   }
 
   getPixel(x, y) {
     return this.getColor(x, y);
+  }
+
+  updateVisualCanvas() {
+    const ctx = this._visualContext;
+
+    const pointWidth = this._visualCanvas.width / this.width;
+    const pointHeight = this._visualCanvas.height / this.height;
+
+    const matrix = this.matrix;
+    this.transferCanvasData();
+    matrix.traverseByRowAndColumn((x, y) => {
+      const [r, g, b] = matrix.get(x, y);
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.fillRect(x * pointWidth + 1, y * pointHeight + 1, pointWidth - 2, pointHeight - 2);
+    });
+  }
+
+  getVisualCanvas({width = 320, height = 320} = {}) {
+    if(width % this.width || height % this.height) {
+      throw Error('Size must be a multiple of the matrix size');
+    }
+    if(!this._visualCanvas) {
+      this._visualCanvas = document.createElement('canvas');
+      this._visualCanvas.width = width;
+      this._visualCanvas.height = height;
+      this._visualContext = this._visualCanvas.getContext('2d');
+    }
+
+    return this._visualCanvas;
   }
 
   generateImageData(matrix, delay = 0) {
