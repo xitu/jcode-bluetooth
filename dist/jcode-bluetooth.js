@@ -1713,12 +1713,15 @@ var _Divoom = class {
     return this._matrix;
   }
   transferCanvasData(canvas = this.canvas, matrix = this.matrix) {
+    if (canvas === this.canvas && matrix === this.matrix)
+      this._matrixNeedsUpdate = false;
     return matrix.fromCanvas(canvas);
   }
   setUpdateLatency(latency = 0) {
     this._updateDelay = latency;
   }
   forceUpdate() {
+    this._matrixNeedsUpdate = true;
     if (!this._updatePromise) {
       this._updatePromise = new Promise((resolve) => {
         if (this._updateDelay <= 0 && typeof requestAnimationFrame === "function") {
@@ -1890,8 +1893,8 @@ var _Divoom = class {
   }
   setColor(color, x, y) {
     const { r, g, b } = new TinyColor(color);
-    const originColor = this.getColor(x, y);
-    if (r !== originColor.r || g !== originColor.g || b !== originColor.b) {
+    const originColor = this.matrix.get(x, y);
+    if (r !== originColor[0] || g !== originColor[1] || b !== originColor[2]) {
       this.context.fillStyle = color;
       this.context.fillRect(x, y, 1, 1);
       this.matrix.set(x, y, [r, g, b]);
@@ -1905,8 +1908,8 @@ var _Divoom = class {
     for (let i = 0; i < positions.length; i++) {
       const [x, y] = positions[i];
       const { r, g, b } = new TinyColor(color);
-      const originColor = this.getColor(x, y);
-      if (r !== originColor.r || g !== originColor.g || b !== originColor.b) {
+      const originColor = this.matrix.get(x, y);
+      if (r !== originColor[0] || g !== originColor[1] || b !== originColor[2]) {
         this.context.rect(x, y, 1, 1);
         this.matrix.set(x, y, [r, g, b]);
       }
@@ -1914,6 +1917,9 @@ var _Divoom = class {
     this.context.fill();
   }
   getColor(x, y, repeat = false) {
+    if (this._matrixNeedsUpdate) {
+      this.transferCanvasData();
+    }
     if (repeat) {
       x = (x + this.width) % this.width;
       y = (y + this.height) % this.height;
@@ -1921,8 +1927,8 @@ var _Divoom = class {
     const [r, g, b] = this.matrix.get(x, y);
     return new TinyColor({ r, g, b });
   }
-  getPixel(x, y) {
-    return this.getColor(x, y);
+  getPixel(x, y, repeat = false) {
+    return this.getColor(x, y, repeat);
   }
   updateVisualCanvas() {
     const ctx = this._visualContext;
