@@ -97,6 +97,7 @@ export class Divoom {
   }
 
   transferCanvasData(canvas = this.canvas, matrix = this.matrix) {
+    if(canvas === this.canvas && matrix === this.matrix) this._matrixNeedsUpdate = false;
     return matrix.fromCanvas(canvas);
   }
 
@@ -105,6 +106,7 @@ export class Divoom {
   }
 
   forceUpdate() {
+    this._matrixNeedsUpdate = true;
     if(!this._updatePromise) {
       this._updatePromise = new Promise((resolve) => {
         if(this._updateDelay <= 0 && typeof requestAnimationFrame === 'function') {
@@ -311,8 +313,8 @@ export class Divoom {
 
   setColor(color, x, y) {
     const {r, g, b} = new TinyColor(color);
-    const originColor = this.getColor(x, y);
-    if(r !== originColor.r || g !== originColor.g || b !== originColor.b) {
+    const originColor = this.matrix.get(x, y);
+    if(r !== originColor[0] || g !== originColor[1] || b !== originColor[2]) {
       this.context.fillStyle = color;
       this.context.fillRect(x, y, 1, 1);
       this.matrix.set(x, y, [r, g, b]);
@@ -328,8 +330,8 @@ export class Divoom {
     for(let i = 0; i < positions.length; i++) {
       const [x, y] = positions[i];
       const {r, g, b} = new TinyColor(color);
-      const originColor = this.getColor(x, y);
-      if(r !== originColor.r || g !== originColor.g || b !== originColor.b) {
+      const originColor = this.matrix.get(x, y);
+      if(r !== originColor[0] || g !== originColor[1] || b !== originColor[2]) {
         this.context.rect(x, y, 1, 1);
         this.matrix.set(x, y, [r, g, b]);
       }
@@ -338,6 +340,9 @@ export class Divoom {
   }
 
   getColor(x, y, repeat = false) {
+    if(this._matrixNeedsUpdate) {
+      this.transferCanvasData();
+    }
     if(repeat) {
       x = (x + this.width) % this.width;
       y = (y + this.height) % this.height;
@@ -346,8 +351,8 @@ export class Divoom {
     return new TinyColor({r, g, b});
   }
 
-  getPixel(x, y) {
-    return this.getColor(x, y);
+  getPixel(x, y, repeat = false) {
+    return this.getColor(x, y, repeat);
   }
 
   updateVisualCanvas() {
