@@ -1886,6 +1886,7 @@ var _Divoom = class {
   }
   clear() {
     this.context.clearRect(0, 0, this.width, this.height);
+    this.matrix.pixels.fill([0, 0, 0]);
   }
   setColor(color, x, y) {
     const { r, g, b } = new TinyColor(color);

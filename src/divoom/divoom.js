@@ -306,6 +306,7 @@ export class Divoom {
 
   clear() {
     this.context.clearRect(0, 0, this.width, this.height);
+    this.matrix.pixels.fill([0, 0, 0]);
   }
 
   setColor(color, x, y) {

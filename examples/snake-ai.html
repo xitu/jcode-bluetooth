@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>贪吃蛇AI</title>
+</head>
+<style>
+    #matrix {
+      margin: auto;
+      width: 90vw;
+      height: 90vw;
+      max-width: 600px;
+      max-height: 600px;
+      border-bottom: solid 1px #000E;
+      border-right: solid 1px #000E;
+      background-image: linear-gradient(90deg, rgba(88, 88, 88, 0.5) 2.5%, transparent 2.5%), linear-gradient( rgba(88, 88, 88, 0.95) 2.5%, transparent 2.5%);
+      background-size: 6.25% 6.25%;
+      background-repeat: repeat;
+      background-color:black;
+      display:grid;
+      grid-template-columns:repeat(16, 6.25%);
+      grid-template-rows:repeat(16, 6.25%);
+    }
+
+    #matrix > div {
+      cursor: crosshair;
+      border: solid 1px #666;
+    }
+</style>
+<body>
+  <div id="matrix"></div>
+  <script type="module">
+    class SnakeGame {
+      constructor(width = 16, height = 16) {
+        this.width = width;
+        this.height = height;
+        this.board = [];
+        this.snake = [];
+        this.food = [];
+        this.score = 0;
+        this.direction = 'right';
+        this.gameOver = false;
+        this._snakBodyHue = 100;
+        this._foodHue = 0;
+      }
+
+      assertCell(x, y, value =  0) {
+        if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+          throw new Error('Cell out of range');
+        }
+        if (this.board[y * this.width + x] !== value) {
+          throw new Error('Cell value not match');
+        }
+      }
+
+      pushSnake(x, y) {
+        // this.assertCell(x, y);
+        this.snake.push([x, y]);
+        this.board[y * this.width + x] = 1;
+      }
+
+      putFood(x, y) {
+        this.assertCell(x, y);
+        this.food = [x, y];
+        this.board[y * this.width + x] = 2;
+        this._foodHue = Math.ceil(Math.random() * 360);
+      }
+
+      putRandomFood() {
+        let x, y;
+        do {
+          x = Math.floor(Math.random() * this.width);
+          y = Math.floor(Math.random() * this.height);
+        } while (this.board[y * this.width + x] !== 0);
+        this.putFood(x, y);
+      }
+
+      initBoard() {
+        this.board = new Array(this.width * this.height).fill(0);
+        this.snake = [];
+        this.food = [];
+        this.score = 0;
+        this.direction = 'right';
+        this.gameOver = false;
+        this.pushSnake(0, 0);
+        this.pushSnake(1, 0);
+        this.pushSnake(2, 0); // 堆栈尾部是🐍头部
+      }
+
+      moveStep(direction = 'left') {
+        this.direction = direction;
+        const [headX, headY] = this.snake[this.snake.length - 1];
+        let [newX, newY] = [headX, headY];
+        let [tailX, tailY] = this.snake[0];
+        switch (this.direction) {
+          case 'left':
+            newX -= 1;
+            break;
+          case 'right':
+            newX += 1;
+            break;
+          case 'up':
+            newY -= 1;
+            break;
+          case 'down':
+            newY += 1;
+            break;
+        }
+        if (newX < 0 || newX >= this.width || newY < 0 || newY >= this.height) {
+          this.gameOver = true;
+          return;
+        }
+        if (this.board[newY * this.width + newX] === 1 && newX !== tailX && newY !== tailY) {
+          this.gameOver = true;
+          return;
+        }
+        if (this.board[newY * this.width + newX] === 2) {
+          this.score += 1;
+          this._snakBodyHue = this._foodHue;
+          this.putRandomFood();
+        } else {
+          const [tailX, tailY] = this.snake.shift();
+          this.board[tailY * this.width + tailX] = 0;
+        }
+        this.pushSnake(newX, newY);
+      }
+
+      updateBoard() {
+        const matrix = document.getElementById('matrix');
+
+        if(!matrix.initialized) {
+          matrix.initialized = true;
+          for (let i = 0; i < this.board.length; i++) {
+            const cell = document.createElement('div');
+            matrix.appendChild(cell);
+          }
+        }
+        const [headX, headY] = this.head;
+        for (let i = 0; i < this.board.length; i++) {
+          const cell = matrix.childNodes[i];
+          cell.style.backgroundColor = 'black';
+        }
+        for (let i = 0; i < this.snake.length; i++) {
+          const [x, y] = this.snake[i];
+          const cell = matrix.childNodes[y * this.width + x];
+          const bodySaturation = (0.5 + 0.5 * i / this.snake.length) * 100;
+          const bodyLightness = (0.5 + 0.35 * i / this.snake.length) * 100;
+          const bodyColor = `hsl(${this._snakBodyHue}, ${bodySaturation}%, ${bodyLightness}%)`;
+          cell.style.backgroundColor = bodyColor;
+        }
+        const [foodX, foodY] = this.food;
+        const cell = matrix.childNodes[foodY * this.width + foodX];
+        cell.style.backgroundColor = `hsl(${this._foodHue}, 100%, 50%)`;
+      }
+
+      updatePixoo(pixoo) {
+        pixoo.clear();
+        for(let i = 0; i < this.snake.length; i++) {
+          const [x, y] = this.snake[i];
+          const bodySaturation = (0.5 + 0.5 * i / this.snake.length) * 100;
+          const bodyLightness = (0.5 + 0.35 * i / this.snake.length) * 100;
+          const bodyColor = `hsl(${this._snakBodyHue}, ${bodySaturation}%, ${bodyLightness}%)`;
+          pixoo.setPixel(bodyColor, x, y);
+        }
+        const [foodX, foodY] = this.food;
+        pixoo.setPixel(`hsl(${this._foodHue}, 100%, 50%)`, foodX, foodY);
+      }
+
+      get tail() {
+        return this.snake[0];
+      }
+
+      get head() {
+        return this.snake[this.snake.length - 1];
+      }
+
+      getDirection() {
+        const direction = this._isFoodSafe([...this.food], [...this.board], [...this.snake]);
+        if(direction) {
+          return direction;
+        }
+        const tailDirection = this.bfsSearch(this.tail, [...this.board], [...this.snake]);
+        const [headX, headY] = this.snake[this.snake.length - 1];
+        let newSnake;
+        if(tailDirection) {
+          if(tailDirection !== 'up' && this.direction !== 'down' 
+            && headY - 1 >= 0 && this.board[this.width * (headY - 1) + headX] === 0) {
+            newSnake = [...this.snake];
+            newSnake.shift();
+            newSnake.push([headX, headY - 1]);
+            if(this.bfsSearch(newSnake[0], [...this.board], newSnake)) {
+              return 'up';
+            }
+          }
+          if(tailDirection !== 'down' && this.direction !== 'up' 
+            && headY + 1 < this.height && this.board[this.width * (headY + 1) + headX] === 0) {
+            newSnake = [...this.snake];
+            newSnake.shift();
+            newSnake.push([headX, headY + 1]);
+            if(this.bfsSearch(newSnake[0], [...this.board], newSnake)) {
+              return 'down';
+            }
+          }
+          if(tailDirection !== 'left' && this.direction !== 'right' 
+            && headX - 1 >= 0 && this.board[this.width * headY + headX - 1] === 0) {
+            newSnake = [...this.snake];
+            newSnake.shift();
+            newSnake.push([headX - 1, headY]);
+            if(this.bfsSearch(newSnake[0], [...this.board], newSnake)) {
+              return 'left';
+            }
+          }
+          if(tailDirection !== 'right' && this.direction !== 'left' 
+            && headX + 1 < this.width && this.board[this.width * headY + headX + 1] === 0) {
+            newSnake = [...this.snake];
+            newSnake.shift();
+            newSnake.push([headX + 1, headY]);
+            if(this.bfsSearch(newSnake[0], [...this.board], newSnake)) {
+              return 'right';
+            }
+          }
+          return tailDirection;
+        }
+        const foodDirection = this.bfsSearch();
+        if(foodDirection) {
+          return foodDirection;
+        }
+        if(this.direction !== 'down' && headY - 1 >= 0 
+          && this.board[this.width * (headY - 1) + headX] === 0) {
+          return 'up';
+        }
+        if(this.direction !== 'up' && headY + 1 < this.height 
+          && this.board[this.width * (headY + 1) + headX] === 0) {
+          return 'down';
+        }
+        if(this.direction !== 'right' && headX - 1 >= 0 
+          && this.board[this.width * headY + headX - 1] === 0) {
+          return 'left';
+        }
+        if(this.direction !== 'left' && headX + 1 < this.width 
+          && this.board[this.width * headY + headX + 1] === 0) {
+          return 'right';
+        }
+      }
+
+      nextStep() {
+        const direction = this.getDirection();
+        if(direction) {
+          this.moveStep(direction);
+        } else {
+          this.gameOver = true;
+        }
+      }
+
+      _isFoodSafe(food, board, snake) {
+        const direction = this.bfsSearch(food, board, snake);
+        if(direction) {
+          const [headX, headY] = snake[snake.length - 1];
+          let [newX, newY] = [headX, headY];
+          switch (direction) {
+            case 'left':
+              newX -= 1;
+              break;
+            case 'right':
+              newX += 1;
+              break;
+            case 'up':
+              newY -= 1;
+              break;
+            case 'down':
+              newY += 1;
+              break;
+          }
+          const dest = board[newY * this.width + newX];
+          if(dest === 2) {
+            // found food
+            const direction2 = this.bfsSearch(snake[0], board, snake); // check tail
+            if(direction2) {
+              return direction;
+            }
+          } else {
+            snake.push([newX, newY]);
+            board[newY * this.width + newX] = 1;
+            const [tailX, tailY] = snake.shift();
+            board[tailY * this.width + tailX] = 0;
+            if(this._isFoodSafe(food, board, snake)) {
+              return direction;
+            }
+          }
+        }
+        return false;
+      }
+
+      bfsSearch(dest = this.food, board = this.board, snake = this.snake) {
+        const queue = [];
+        const visited = new Array(this.width * this.height).fill(false);
+        const parent = new Array(this.width * this.height).fill(-1);
+        let checkTail = false;
+        if(board[dest[1] * this.width + dest[0]] === 1) {
+          checkTail = true;
+          board[dest[1] * this.width + dest[0]] = 0;
+        }
+        const [foodX, foodY] = dest;
+        const [headX, headY] = snake[snake.length - 1];
+        queue.push([headX, headY]);
+        visited[headY * this.width + headX] = true;
+        while (queue.length > 0) {
+          const [x, y] = queue.shift();
+          if (x === foodX && y === foodY) {
+            break;
+          }
+          const neighbors = [
+            [x - 1, y],
+            [x + 1, y],
+            [x, y - 1],
+            [x, y + 1],
+          ];
+          for (const [nx, ny] of neighbors) {
+            if (nx < 0 || nx >= this.width || ny < 0 || ny >= this.height) {
+              continue;
+            }
+            if (visited[ny * this.width + nx]) {
+              continue;
+            }
+            if (board[ny * this.width + nx] === 1) {
+              continue;
+            }
+            queue.push([nx, ny]);
+            visited[ny * this.width + nx] = true;
+            parent[ny * this.width + nx] = y * this.width + x;
+          }
+        }
+        if (checkTail) {
+          board[dest[1] * this.width + dest[0]] = 1;
+        }
+        if (parent[foodY * this.width + foodX] === -1) {
+          // console.warn('no path found');
+          return null;
+        }
+        let [x, y] = [foodX, foodY];
+        while (parent[y * this.width + x] !== headY * this.width + headX) {
+          [x, y] = [parent[y * this.width + x] % this.width, Math.floor(parent[y * this.width + x] / this.width)];
+        }
+        if (x === headX - 1) {
+          return 'left';
+        }
+        if (x === headX + 1) {
+          return 'right';
+        }
+        if (y === headY - 1) {
+          return 'up';
+        }
+        if (y === headY + 1) {
+          return 'down';
+        }
+        console.warn('no path found');
+        return 'left';
+      }
+    }
+
+    const snake = new SnakeGame();
+
+    import {Pixoo, TinyColor} from './jcode-bluetooth.js';
+    const device = new Pixoo();
+
+    const connected = await device.isConnected();
+    if(!connected) device.setEmulate();
+
+    snake.initBoard();
+    snake.putRandomFood();
+    snake.updateBoard();
+    snake.updatePixoo(device);
+
+    setInterval(() => {
+      if (snake.gameOver) {
+        snake.initBoard();
+        snake.putRandomFood();
+        snake.updateBoard();
+        snake.updatePixoo(device);
+      }
+
+      snake.nextStep();
+      snake.updateBoard();
+      snake.updatePixoo(device);
+    }, 100);
+    window.snake = snake;
+  </script>
+</body>
+</html>
