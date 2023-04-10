@@ -2,7 +2,7 @@
 import {TinyColor} from '@ctrl/tinycolor';
 import {int2hexlittle, boolean2HexString, number2HexString, color2HexString} from './utils.js';
 import {TimeboxEvoMessage} from './message.js';
-import {Matrix} from './matrix.js';
+import {PixelData} from '../common/pixel-data.js';
 
 export class Divoom {
   static WeatherType = {
@@ -33,7 +33,7 @@ export class Divoom {
 
   constructor({host = 'http://localhost:9527', width = 16, height = 16} = {}) {
     this._host = host;
-    this._matrix = new Matrix(width, height);
+    this._matrix = new PixelData(width, height);
     this._canvas = null;
     this._updatePromise = null;
     this._updateDelay = 0;
@@ -52,17 +52,17 @@ export class Divoom {
           return super.height;
         }
 
-        getContext(type, args = {}) {
-          if(args.willReadFrequently !== false) args.willReadFrequently = true;
+        getContext(type, options = {}) {
+          if(options.willReadFrequently !== false) options.willReadFrequently = true;
           // if(args.alpha !== true) args.alpha = false;
           if(type === '2d') {
             if(this._ctx) return this._ctx;
-            this._ctx = super.getContext(type, args);
+            this._ctx = super.getContext(type, options);
             const {fill, stroke, fillRect, strokeRect, fillText, strokeText, drawImage, clearRect} = this._ctx;
             [fill, stroke, fillRect, strokeRect, fillText, strokeText, drawImage, clearRect].forEach((fn) => {
-              this._ctx[fn.name] = (...rest) => {
-                const ret = fn.apply(this._ctx, rest);
-                self.forceUpdate();
+              this._ctx[fn.name] = async (...rest) => {
+                fn.apply(this._ctx, rest);
+                const ret = await self.forceUpdate();
                 return ret;
               };
             });
@@ -94,6 +94,10 @@ export class Divoom {
 
   get matrix() {
     return this._matrix;
+  }
+
+  getContext(type = '2d', options = {}) {
+    return this._canvas.getContext(type, options);
   }
 
   transferCanvasData(canvas = this.canvas, matrix = this.matrix) {
@@ -177,7 +181,7 @@ export class Divoom {
     if(typeof image.getContext === 'function') {
       // canvas
       frame = this.transferCanvasData(image, this._matrix.clone());
-    } else if(!(image instanceof Matrix) && typeof OffscreenCanvas === 'function') {
+    } else if(!(image instanceof PixelData) && typeof OffscreenCanvas === 'function') {
       const ofc = new OffscreenCanvas(this.width, this.height);
       ofc.getContext('2d').drawImage(image, 0, 0, this.width, this.height);
       frame = this.transferCanvasData(ofc, this._matrix.clone());

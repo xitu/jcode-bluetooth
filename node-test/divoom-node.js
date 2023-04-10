@@ -1,11 +1,11 @@
 import {Canvas} from 'node-canvas-webgl';
-import {Pixoo} from '../src/divoom/pixoo.js';
-import {TimeboxEvoMessage} from '../src/divoom/timebox-evo-message.js';
+import {Divoom} from '../src/divoom/divoom.js';
+import {TimeboxEvoMessage} from '../src/divoom/message.js';
 
 global.OffscreenCanvas = Canvas;
 
-export class PixooNode extends Pixoo {
-  constructor({bluetooth, width = 32, height = 32} = {}) {
+export class DivoomNode extends Divoom {
+  constructor({bluetooth, width = 16, height = 16} = {}) {
     super({width, height});
     this._bluetooth = bluetooth;
   }

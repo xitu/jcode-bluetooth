@@ -1,7 +1,7 @@
 export function unhexlify(str) {
   let result = '';
   if(str.length % 2 !== 0) {
-    throw new Error('The string length is not a multiple of 2');
+    throw new Error(`The string length is not a multiple of 2: ${str}`);
   }
   for(let i = 0, l = str.length; i < l; i += 2) {
     const toHex = parseInt(str.substr(i, 2), 16);

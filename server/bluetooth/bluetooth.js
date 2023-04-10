@@ -5,25 +5,21 @@ import {sleep} from '../../src/common/sleep.js';
 
 export class Bluetooth {
   constructor({deviceMAC, connectionTimeout, maxConnectAttempts, connectionAttemptDelay}) {
-    this._connection = null;
-    this._tempBuffer = null;
     this._config = {deviceMAC, connectionTimeout, maxConnectAttempts, connectionAttemptDelay};
     this._dataBuffer = [];
-    this.SPP_Port = new BluetoothSerialPort.BluetoothSerialPort();
-  }
-
-  get connection() {
-    return this._connection;
+    this.server = new BluetoothSerialPort.BluetoothSerialPort();
   }
 
   async connect(times = this._config.maxConnectAttempts) {
     const {connectionAttemptDelay} = this._config;
     let attempts = 0;
+    let success = false;
     for(let i = 0; i < times; i += 1) {
       try {
         console.log('connection attempt %d/%d', attempts, times);
         // eslint-disable-next-line no-await-in-loop
-        this._connection = await this._connect();
+        await this._connect();
+        success = true;
         break;
       } catch (error) {
         console.error('error', error.message);
@@ -32,23 +28,24 @@ export class Bluetooth {
         await sleep(connectionAttemptDelay);
       }
     }
-    return this._connection;
+    await sleep(500); // wait for device ready
+    return success ? this.server : null;
   }
 
   _connect() {
     const {deviceMAC, connectionTimeout} = this._config;
-    const SPP_Port = this.SPP_Port;
+    const server = this.server;
     return new Promise((resolve, reject) => {
       // Find the device
       setTimeout(() => {
         reject(new Error('Connection timeout'));
       }, connectionTimeout);
 
-      SPP_Port.findSerialPortChannel(deviceMAC, (channel) => {
+      server.findSerialPortChannel(deviceMAC, (channel) => {
         // Connect to the device
-        SPP_Port.connect(deviceMAC, channel, () => {
+        server.connect(deviceMAC, channel, () => {
           // We connected, resolve
-          resolve(SPP_Port);
+          resolve(server);
         }, () => reject(new Error('Cannot connect')));
       }, () => reject(new Error('Not found')));
     });
@@ -58,25 +55,15 @@ export class Bluetooth {
    * Write a buffer to the device
    */
   write(buffer) {
-    const connection = this._connection;
+    const server = this.server;
     return new Promise((resolve, reject) => {
-      if(!connection) {
-        this._tempBuffer = buffer;
-        return reject(new Error('Not connected'));
-      }
-      connection.write(buffer, (error, bytes) => {
+      server.write(buffer, (error, bytes) => {
         console.log('==>', error, buffer, bytes);
         if(error) {
-          connection.close(); // 重新连接
-          this._connection = null;
-          this.connect(1000).then((conn) => {
+          server.close(); // 重新连接
+          this.connect(1000).then(() => {
             console.log('reconnected!');
-            this._connection = conn;
-            if(this._tempBuffer) {
-              return conn.write(this._tempBuffer, () => {
-                this._tempBuffer = null;
-              });
-            }
+            this.write(buffer);
           });
         }
         return error ? reject(error) : resolve(bytes);
@@ -110,6 +97,6 @@ export class Bluetooth {
 
   async disconnect() {
     if(this._defer) await this._defer.promise;
-    if(this.connection) await this.connection.close();
+    this.server.close();
   }
 }

@@ -78,7 +78,7 @@ const config = {
 
   process.on('SIGINT', (code) => {
     console.log('Disconnecting…');
-    if(bluetooth.connection) bluetooth.connection.close();
+    connection.close();
     process.exit(0);
   });
 }());
